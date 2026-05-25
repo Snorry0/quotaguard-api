@@ -1,0 +1,47 @@
+# Build output
+target/
+*.class
+
+# Maven
+target/
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse / STS
+.project
+.classpath
+.settings/
+.springBeans
+.sts4-cache/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker / local persistence
+docker-data/
+postgres-data/
+**/postgres-data/
+**/docker-data/
+
+# Runtime/generated files
+*.pid
+*.seed
+*.tmp

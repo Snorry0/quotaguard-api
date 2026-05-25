@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: quotaguard
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:quotaguard}
+    username: ${DB_USERNAME:quotaguard}
+    password: ${DB_PASSWORD:quotaguard}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
+
+  sql:
+    init:
+      mode: never
+
+quotaguard:
+  default-daily-limit: ${DEFAULT_DAILY_LIMIT:100}
+  penalty-decay-per-reset: ${PENALTY_DECAY_PER_RESET:1}
+  reset-cron: "${QUOTA_RESET_CRON:0 0 0 * * *}"
+  penalties:
+    short-cooldown: "${SHORT_COOLDOWN:PT15M}"
+    long-cooldown: "${LONG_COOLDOWN:PT4H}"
+  sessions:
+    units-per-minute: ${SESSION_UNITS_PER_MINUTE:1}
+    minimum-charge: ${SESSION_MINIMUM_CHARGE:1}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-before-production-dev-only-secret}
+    expiration-hours: ${JWT_EXPIRATION_HOURS:12}
