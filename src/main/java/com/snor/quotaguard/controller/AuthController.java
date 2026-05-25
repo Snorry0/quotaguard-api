@@ -4,6 +4,7 @@ import com.snor.quotaguard.dto.request.LoginRequest;
 import com.snor.quotaguard.dto.request.RegisterRequest;
 import com.snor.quotaguard.dto.response.AuthResponse;
 import com.snor.quotaguard.service.AuthService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(
+        name = "Authentication",
+        description = "Registration and login endpoints"
+)
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor

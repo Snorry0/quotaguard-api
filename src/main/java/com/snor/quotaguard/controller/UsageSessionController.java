@@ -5,6 +5,7 @@ import com.snor.quotaguard.dto.request.StartUsageSessionRequest;
 import com.snor.quotaguard.dto.response.EndUsageSessionResponse;
 import com.snor.quotaguard.dto.response.UsageSessionResponse;
 import com.snor.quotaguard.service.UsageSessionService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+@Tag(
+        name = "Sessions",
+        description = "Session lifecycle tracking and duration-based quota consumption"
+)
 @RestController
 @RequestMapping("/api/v1/sessions")
 @RequiredArgsConstructor

@@ -3,6 +3,7 @@ package com.snor.quotaguard.controller;
 import com.snor.quotaguard.dto.response.UsageStatsResponse;
 import com.snor.quotaguard.dto.response.UsageTrendResponse;
 import com.snor.quotaguard.service.AnalyticsService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Tag(
+        name = "Analytics",
+        description = "Usage statistics, trends, and behavioral insights"
+)
 @RestController
 @RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
