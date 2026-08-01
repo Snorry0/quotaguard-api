@@ -2,8 +2,8 @@ package com.snor.quotaguard.domain.enums;
 
 public enum ActionType {
     API_CALL,
-    DATA_EXPORT,
-    CREDIT_OPERATION,
+    RESOURCE_ACCESS,
+    BACKGROUND_JOB,
     SESSION_ACTION,
-    CUSTOM
+    MANUAL_ADJUSTMENT
 }

@@ -7,15 +7,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
         long retryAfterSeconds = Math.max(1, Duration.between(LocalDateTime.now(ZoneOffset.UTC), ex.getEndsAt()).toSeconds());
         headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds));
 
-        ErrorResponse response = error(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request, details);
+        ErrorResponse response = ErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request.getRequestURI(), details);
         return new ResponseEntity<>(response, headers, HttpStatus.TOO_MANY_REQUESTS);
     }
 
@@ -66,6 +66,11 @@ public class GlobalExceptionHandler {
                 validationErrors.put(error.getField(), error.getDefaultMessage())
         );
         return build(HttpStatus.BAD_REQUEST, "Validation failed", request, validationErrors);
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ErrorResponse> handleMalformedRequest(Exception ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Malformed request", request, null);
     }
 
     @ExceptionHandler(AuthenticationException.class)
@@ -83,7 +88,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({IllegalArgumentException.class, DataIntegrityViolationException.class})
     ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException ex, HttpServletRequest request) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
+        log.warn("Rejected bad request {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Malformed request", request, null);
     }
 
     @ExceptionHandler(Exception.class)
@@ -92,30 +98,6 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", request, null);
     }
 
-    private ResponseEntity<ErrorResponse> build(
-            HttpStatus status,
-            String message,
-            HttpServletRequest request,
-            Map<String, String> validationErrors
-    ) {
-        return ResponseEntity.status(status).body(error(status, message, request, validationErrors));
-    }
-
-    private ErrorResponse error(
-            HttpStatus status,
-            String message,
-            HttpServletRequest request,
-            Map<String, String> validationErrors
-    ) {
-        return new ErrorResponse(
-                Instant.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                message,
-                request.getRequestURI(),
-                validationErrors
-        );
-    }
     @ExceptionHandler(ActiveSessionAlreadyExistsException.class)
     ResponseEntity<ErrorResponse> handleActiveSession(
             ActiveSessionAlreadyExistsException ex,
@@ -133,5 +115,23 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(SelfDeletionNotAllowedException.class)
+    ResponseEntity<ErrorResponse> handleSelfDeletion(
+            SelfDeletionNotAllowedException ex,
+            HttpServletRequest request
+    ) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    private ResponseEntity<ErrorResponse> build(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request,
+            Map<String, String> details
+    ) {
+        return ResponseEntity.status(status)
+                .body(ErrorResponse.of(status, message, request.getRequestURI(), details));
     }
 }

@@ -50,4 +50,29 @@ public class UserQuota {
 
     @Column(nullable = false)
     private int penaltyLevel;
+
+    public boolean canConsume(int amount) {
+        return usedToday + amount <= dailyLimit;
+    }
+
+    public int remainingToday() {
+        return Math.max(0, dailyLimit - usedToday);
+    }
+
+    public void consume(int amount) {
+        if (!canConsume(amount)) {
+            throw new IllegalStateException("Consumption would exceed the daily limit");
+        }
+        this.usedToday += amount;
+    }
+
+    public void incrementPenaltyLevel() {
+        this.penaltyLevel++;
+    }
+
+    public void resetForNewDay(LocalDate resetDate, int penaltyDecay) {
+        this.usedToday = 0;
+        this.lastResetDate = resetDate;
+        this.penaltyLevel = Math.max(0, this.penaltyLevel - penaltyDecay);
+    }
 }

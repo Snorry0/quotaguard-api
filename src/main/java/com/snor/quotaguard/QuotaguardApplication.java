@@ -8,9 +8,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @ConfigurationPropertiesScan
 @SpringBootApplication
-public class QuotaguardApplication {
+public class QuotaGuardApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(QuotaguardApplication.class, args);
+        SpringApplication.run(QuotaGuardApplication.class, args);
     }
 }

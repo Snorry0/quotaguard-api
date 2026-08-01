@@ -7,9 +7,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.H2Dialect
 
 security:
   jwt:
@@ -23,3 +21,6 @@ quotaguard:
   penalties:
     short-cooldown: PT15M
     long-cooldown: PT4H
+  sessions:
+    units-per-minute: 1
+    minimum-charge: 1
