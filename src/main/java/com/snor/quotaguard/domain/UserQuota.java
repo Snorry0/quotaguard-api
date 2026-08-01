@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -50,6 +51,9 @@ public class UserQuota {
 
     @Column(nullable = false)
     private int penaltyLevel;
+
+    @Version
+    private long version;
 
     public boolean canConsume(int amount) {
         return usedToday + amount <= dailyLimit;
