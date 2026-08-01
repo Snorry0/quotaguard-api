@@ -31,7 +31,7 @@ public class OpenApiConfig {
                                 """)
                         .contact(new Contact()
                                 .name("QuotaGuard API")
-                                .url("https://github.com/YOUR_USERNAME/quotaguard-api"))
+                                .url("https://github.com/Snorry0/quotaguard-api"))
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/license/mit")))

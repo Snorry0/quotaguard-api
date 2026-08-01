@@ -1,6 +1,7 @@
 package com.snor.quotaguard.security;
 
-import com.snor.quotaguard.repository.UserRepository;
+import com.snor.quotaguard.domain.User;
+import com.snor.quotaguard.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -15,11 +16,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var user = userRepository.findByEmail(username)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
+                .withUsername(user.getId().toString())
                 .password(user.getPasswordHash())
                 .authorities("ROLE_" + user.getRole().name())
                 .build();

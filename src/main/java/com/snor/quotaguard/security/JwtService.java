@@ -34,8 +34,8 @@ public class JwtService {
         Instant expiresAt = now.plus(properties.expiration());
 
         return Jwts.builder()
-                .setClaims(Map.of("role", user.getRole().name(), "userId", user.getId().toString()))
-                .setSubject(user.getEmail())
+                .setClaims(Map.of("role", user.getRole().name()))
+                .setSubject(user.getId().toString())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiresAt))
                 .signWith(signingKey, SignatureAlgorithm.HS256)
@@ -46,12 +46,16 @@ public class JwtService {
         return Instant.now(clock).plus(properties.expiration());
     }
 
-    public String extractUsername(String token) {
+    public String extractUserId(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public boolean isTokenValid(String token, String expectedUsername) {
-        return expectedUsername.equals(extractUsername(token)) && !isExpired(token);
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public boolean isTokenValid(String token) {
+        return !isExpired(token);
     }
 
     private boolean isExpired(String token) {

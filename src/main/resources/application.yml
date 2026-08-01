@@ -35,7 +35,7 @@ quotaguard:
 security:
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-change-before-production-dev-only-secret}
-    expiration-hours: ${JWT_EXPIRATION_HOURS:12}
+    expiration: "${JWT_EXPIRATION_HOURS:12}h"
 
 springdoc:
   swagger-ui:

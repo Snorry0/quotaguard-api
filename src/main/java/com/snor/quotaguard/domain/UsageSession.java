@@ -66,4 +66,11 @@ public class UsageSession {
 
     @Column(columnDefinition = "text")
     private String metadata;
+
+    public void complete(LocalDateTime endedAt, long durationSeconds, int amountConsumed) {
+        this.endedAt = endedAt;
+        this.durationSeconds = durationSeconds;
+        this.amountConsumed = amountConsumed;
+        this.status = SessionStatus.COMPLETED;
+    }
 }

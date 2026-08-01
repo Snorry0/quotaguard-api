@@ -57,4 +57,8 @@ public class PenaltyEvent {
 
     @Column(nullable = false)
     private boolean active;
+
+    public void expire() {
+        this.active = false;
+    }
 }
