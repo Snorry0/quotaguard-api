@@ -13,6 +13,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -66,6 +67,9 @@ public class UsageSession {
 
     @Column(columnDefinition = "text")
     private String metadata;
+
+    @Version
+    private long version;
 
     public void complete(LocalDateTime endedAt, long durationSeconds, int amountConsumed) {
         this.endedAt = endedAt;

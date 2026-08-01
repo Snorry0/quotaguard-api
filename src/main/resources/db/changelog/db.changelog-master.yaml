@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-core-schema.sql
   - include:
       file: db/changelog/changes/002-create-indexes.sql
+  - include:
+      file: db/changelog/changes/003-add-version-columns.sql
