@@ -170,6 +170,11 @@ Base path:
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/users/me` | Get the authenticated user's profile |
+| GET | `/users` | List users, admin only |
+| GET | `/users/{userId}` | Get a user, admin only |
+| POST | `/users` | Create a user, admin only |
+| PATCH | `/users/{userId}` | Update a user partially, admin only |
+| DELETE | `/users/{userId}` | Delete a user, admin only |
 
 ### Usage
 
@@ -342,6 +347,8 @@ MANUAL_ADJUSTMENT
 
 If `amountConsumed` is omitted, the backend can calculate consumption from session duration.
 
+If the end-of-session consumption is rejected (quota exceeded or active penalty), the session remains active and can be ended again later.
+
 ## Example Quota Response
 
 ```json
@@ -420,6 +427,10 @@ On Windows PowerShell:
 
 Public registration always creates `USER` accounts to avoid privilege escalation.
 
+Admins cannot delete their own account.
+
+JWT tokens are bound to the user id, not the email address, so changing a user's email does not invalidate their active tokens.
+
 Admin users should be created through controlled operational processes such as:
 
 - database migration
@@ -458,7 +469,6 @@ Planned improvements include:
 - event-driven analytics
 - notification system
 - admin dashboard
-- GitHub Actions CI
 - integration tests with Testcontainers
 - richer OpenAPI documentation
 - frontend or dashboard client
