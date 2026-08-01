@@ -1,10 +1,11 @@
 package com.snor.quotaguard.quota.service;
 
-import com.snor.quotaguard.penalty.service.PenaltyService;
-
+import com.snor.quotaguard.audit.service.AuditEventService;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
+import com.snor.quotaguard.domain.enums.AuditAction;
+import com.snor.quotaguard.penalty.service.PenaltyService;
 import com.snor.quotaguard.quota.dto.response.QuotaResetResponse;
 import com.snor.quotaguard.quota.dto.response.QuotaResponse;
 import com.snor.quotaguard.exception.ResourceNotFoundException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class QuotaService {
     private final CurrentUserProvider currentUserProvider;
     private final QuotaGuardProperties properties;
     private final PenaltyService penaltyService;
+    private final AuditEventService auditEventService;
     private final Clock clock;
 
     @Transactional
@@ -59,7 +62,14 @@ public class QuotaService {
         quotas.forEach(quota -> resetQuota(quota, today));
         userQuotaRepository.saveAll(quotas);
         int expiredPenalties = penaltyService.expireFinishedPenalties();
-        return new QuotaResetResponse(quotas.size(), today, expiredPenalties);
+        QuotaResetResponse response = new QuotaResetResponse(quotas.size(), today, expiredPenalties);
+        auditEventService.record(
+                AuditAction.RESET,
+                "QUOTA",
+                null,
+                Map.of("resetCount", String.valueOf(response.resetCount()), "expiredPenalties", String.valueOf(response.expiredPenalties()))
+        );
+        return response;
     }
 
     private void resetQuota(UserQuota quota, LocalDate resetDate) {
