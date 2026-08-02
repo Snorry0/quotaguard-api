@@ -4,8 +4,11 @@ import com.snor.quotaguard.analytics.dto.response.UsageStatsResponse;
 import com.snor.quotaguard.analytics.dto.response.UsageTrendResponse;
 import com.snor.quotaguard.analytics.service.AnalyticsService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +20,7 @@ import java.util.List;
         name = "Analytics",
         description = "Usage statistics, trends, and behavioral insights"
 )
+@Validated
 @RestController
 @RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
@@ -25,12 +29,16 @@ public class AnalyticsController {
     private final AnalyticsService analyticsService;
 
     @GetMapping("/usage")
-    public ResponseEntity<UsageStatsResponse> usageStats(@RequestParam(defaultValue = "7") int days) {
+    public ResponseEntity<UsageStatsResponse> usageStats(
+            @RequestParam(defaultValue = "7") @Min(1) @Max(366) int days
+    ) {
         return ResponseEntity.ok(analyticsService.getUsageStats(days));
     }
 
     @GetMapping("/trend")
-    public ResponseEntity<List<UsageTrendResponse>> usageTrend(@RequestParam(defaultValue = "14") int days) {
+    public ResponseEntity<List<UsageTrendResponse>> usageTrend(
+            @RequestParam(defaultValue = "14") @Min(1) @Max(366) int days
+    ) {
         return ResponseEntity.ok(analyticsService.getUsageTrend(days));
     }
 }

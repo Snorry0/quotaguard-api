@@ -45,3 +45,6 @@ postgres-data/
 *.pid
 *.seed
 *.tmp
+
+# Deepwork state
+.slim/deepwork/

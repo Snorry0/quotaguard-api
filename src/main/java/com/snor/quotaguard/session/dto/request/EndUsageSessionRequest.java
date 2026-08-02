@@ -1,5 +1,6 @@
 package com.snor.quotaguard.session.dto.request;
 
+import com.snor.quotaguard.validation.annotation.Trimmed;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -15,6 +16,7 @@ public record EndUsageSessionRequest(
         Integer amountConsumed,
 
         @Size(max = 5000)
+        @Trimmed
         String metadata
 ) {
 }

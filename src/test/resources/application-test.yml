@@ -24,3 +24,22 @@ quotaguard:
   sessions:
     units-per-minute: 1
     minimum-charge: 1
+  validation:
+    quota:
+      min: 1
+      max: 100000
+      reject-overflow: true
+    pagination:
+      min-page: 0
+      max-page: 100000
+      max-size: 100
+      default-page: 0
+      default-size: 20
+    password:
+      min-length: 8
+      max-length: 100
+      require-upper: true
+      require-lower: true
+      require-digit: true
+      require-special: true
+      special-chars: "!@#$%^&*()_+-=[]{};:'\",.<>/?\\|`~"

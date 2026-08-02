@@ -1,16 +1,16 @@
 package com.snor.quotaguard.auth.dto.request;
 
+import com.snor.quotaguard.validation.annotation.NormalizedEmail;
+import com.snor.quotaguard.validation.annotation.StrongPassword;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
         @Schema(
                 description = "Unique email address used as login identifier.",
                 example = "demo@example.com"
         )
-        @Email
+        @NormalizedEmail
         @NotBlank
         String email,
 
@@ -20,7 +20,7 @@ public record RegisterRequest(
                 minLength = 8
         )
         @NotBlank
-        @Size(min = 8, max = 100)
+        @StrongPassword
         String password
 ) {
 }

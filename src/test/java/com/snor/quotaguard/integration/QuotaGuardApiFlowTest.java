@@ -75,7 +75,7 @@ class QuotaGuardApiFlowTest {
     void openApiSpecExposesArtifactVersion() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.info.version").value("0.2.0"));
+                .andExpect(jsonPath("$.info.version").value("0.3.0-SNAPSHOT"));
     }
 
     private void registerUser(String email, String password) throws Exception {

@@ -21,7 +21,7 @@ public class OpenApiConfig {
 
     private final String apiVersion;
 
-    public OpenApiConfig(@Value("${quotaguard.api-version:0.2.0}") String apiVersion) {
+    public OpenApiConfig(@Value("${quotaguard.api-version:0.3.0-SNAPSHOT}") String apiVersion) {
         this.apiVersion = apiVersion;
     }
 
