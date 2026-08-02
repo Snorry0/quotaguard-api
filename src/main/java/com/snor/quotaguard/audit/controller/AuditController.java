@@ -3,6 +3,14 @@ package com.snor.quotaguard.audit.controller;
 import com.snor.quotaguard.audit.dto.response.AuditEventResponse;
 import com.snor.quotaguard.audit.dto.response.PageResponse;
 import com.snor.quotaguard.audit.service.AuditService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +35,21 @@ import java.util.UUID;
 @RequestMapping("/api/v1/audit")
 @RequiredArgsConstructor
 public class AuditController {
+
+    private static final String AUDIT_EVENT_EXAMPLE = """
+            {
+              "id": "d4e5f6a7-0000-4000-8000-000000000004",
+              "timestamp": "2026-08-02T08:30:00Z",
+              "actorId": "2f07c5b2-4f0d-4090-86c1-021e5f6b80f8",
+              "actorEmail": "demo@example.com",
+              "action": "USER_CREATED",
+              "resourceType": "USER",
+              "resourceId": "e5f6a7b8-0000-4000-8000-000000000005",
+              "description": "User account created",
+              "ipAddress": "192.168.1.42",
+              "success": true
+            }
+            """;
 
     private final AuditService auditService;
 
@@ -55,6 +78,26 @@ public class AuditController {
      *
      * @param pageable page/size/sort/direction, defaults {@code timestamp, id desc}
      */
+    @Operation(
+            summary = "List audit events (ADMIN)",
+            description = """
+                    Returns a page of audit events, sorted by the `sort` query parameter
+                    (default `timestamp,id` descending). Unknown sort properties return 400.
+                    Requires the `ADMIN` role.
+                    """,
+            operationId = "getAuditEvents"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "A page of audit events.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = PageResponse.class))),
+            @ApiResponse(responseCode = "400", ref = "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = "Forbidden")
+    })
+    @Parameters({
+            @Parameter(ref = "Sort")
+    })
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PageResponse<AuditEventResponse>> getAuditEvents(
@@ -63,6 +106,21 @@ public class AuditController {
         return ResponseEntity.ok(auditService.getAuditEvents(pageable));
     }
 
+    @Operation(
+            summary = "Get an audit event by ID (ADMIN)",
+            description = "Returns a single audit event by its UUID identifier. Requires the `ADMIN` role.",
+            operationId = "getAuditEvent"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The requested audit event.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = AuditEventResponse.class),
+                            examples = @ExampleObject(name = "auditEvent", summary = "Audit event",
+                                    value = AUDIT_EVENT_EXAMPLE))),
+            @ApiResponse(responseCode = "401", ref = "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = "Forbidden"),
+            @ApiResponse(responseCode = "404", ref = "NotFound")
+    })
     @GetMapping("/{eventId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AuditEventResponse> getAuditEvent(@PathVariable UUID eventId) {

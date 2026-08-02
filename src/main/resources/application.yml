@@ -58,10 +58,23 @@ security:
     expiration: "${JWT_EXPIRATION_HOURS:12}h"
 
 springdoc:
+  # Keep broken reference definitions in the served spec. springdoc's default
+  # (true) strips schemas that fail an internal Jackson round-trip clone; the
+  # Map-typed `validationErrors` field on ErrorResponse triggers that clone
+  # failure, which strips BOTH ErrorResponse and FieldErrorDetail from the
+  # served spec and leaves every reusable error response ($ref) dangling.
+  # The clone failure is a springdoc framework quirk (not a spec defect);
+  # the served spec is correct with this flag set to false.
+  remove-broken-reference-definitions: false
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
     display-request-duration: true
+    display-operation-id: true
+    doc-expansion: none
+    persist-authorization: true
+    disable-swagger-default-url: true
   api-docs:
     path: /v3/api-docs
+    resolve-schema-properties: true
