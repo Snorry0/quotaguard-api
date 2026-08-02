@@ -4,12 +4,15 @@ import com.snor.quotaguard.usage.dto.request.ConsumeUsageRequest;
 import com.snor.quotaguard.usage.dto.response.ConsumeUsageResponse;
 import com.snor.quotaguard.usage.dto.response.UsageRecordResponse;
 import com.snor.quotaguard.usage.service.UsageService;
+import com.snor.quotaguard.validation.annotation.AllowedPageSize;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
         name = "Usage",
         description = "Resource consumption and usage history endpoints"
 )
+@Validated
 @RestController
 @RequestMapping("/api/v1/usage")
 @RequiredArgsConstructor
@@ -48,8 +52,8 @@ public class UsageController {
     )
     @GetMapping("/history")
     public ResponseEntity<Page<UsageRecordResponse>> history(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @AllowedPageSize int size
     ) {
         return ResponseEntity.ok(usageService.getHistory(page, size));
     }

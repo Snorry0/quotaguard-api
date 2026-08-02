@@ -111,7 +111,7 @@ public class UsageSessionService {
 
         session.complete(endedAt, durationSeconds, amountConsumed);
 
-        if (request.metadata() != null && !request.metadata().isBlank()) {
+        if (request.metadata() != null) {
             session.setMetadata(request.metadata());
         }
 

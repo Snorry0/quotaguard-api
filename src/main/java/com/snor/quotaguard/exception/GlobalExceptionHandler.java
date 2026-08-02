@@ -1,8 +1,12 @@
 package com.snor.quotaguard.exception;
 
 import com.snor.quotaguard.dto.response.ErrorResponse;
+import com.snor.quotaguard.dto.response.FieldErrorDetail;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -11,15 +15,19 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -63,10 +71,45 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> validationErrors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                validationErrors.put(error.getField(), error.getDefaultMessage())
-        );
-        return build(HttpStatus.BAD_REQUEST, "Validation failed", request, validationErrors);
+        List<FieldErrorDetail> errors = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(error -> {
+            validationErrors.put(error.getField(), error.getDefaultMessage());
+            errors.add(new FieldErrorDetail(error.getField(), error.getRejectedValue(), error.getDefaultMessage()));
+        });
+        return build(HttpStatus.BAD_REQUEST, "Validation failed", request, validationErrors, errors);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        Map<String, String> validationErrors = new LinkedHashMap<>();
+        List<FieldErrorDetail> errors = new ArrayList<>();
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            String field = lastPathNode(violation.getPropertyPath().toString());
+            Object rejectedValue = violation.getInvalidValue();
+            String message = violation.getMessage();
+            validationErrors.put(field, message);
+            errors.add(new FieldErrorDetail(field, rejectedValue, message));
+        }
+        return build(HttpStatus.BAD_REQUEST, "Validation failed", request, validationErrors, errors);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ErrorResponse> handleHandlerMethodValidation(
+            HandlerMethodValidationException ex,
+            HttpServletRequest request
+    ) {
+        Map<String, String> validationErrors = new LinkedHashMap<>();
+        List<FieldErrorDetail> errors = new ArrayList<>();
+        for (ParameterValidationResult result : ex.getAllValidationResults()) {
+            String field = result.getMethodParameter().getParameterName();
+            Object rejectedValue = result.getArgument();
+            for (MessageSourceResolvable resolvable : result.getResolvableErrors()) {
+                String message = resolvable.getDefaultMessage();
+                validationErrors.put(field, message);
+                errors.add(new FieldErrorDetail(field, rejectedValue, message));
+            }
+        }
+        return build(HttpStatus.BAD_REQUEST, "Validation failed", request, validationErrors, errors);
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
@@ -87,8 +130,20 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "You do not have permission to access this resource", request, null);
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, DataIntegrityViolationException.class})
-    ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException ex, HttpServletRequest request) {
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Rejected bad request {}: {}", request.getRequestURI(), ex.getMessage());
+        String message = ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? ex.getMessage()
+                : "Malformed request";
+        return build(HttpStatus.BAD_REQUEST, message, request, null);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
         log.warn("Rejected bad request {}: {}", request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, "Malformed request", request, null);
     }
@@ -145,7 +200,22 @@ public class GlobalExceptionHandler {
             HttpServletRequest request,
             Map<String, String> details
     ) {
+        return build(status, message, request, details, null);
+    }
+
+    private ResponseEntity<ErrorResponse> build(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request,
+            Map<String, String> details,
+            List<FieldErrorDetail> errors
+    ) {
         return ResponseEntity.status(status)
-                .body(ErrorResponse.of(status, message, request.getRequestURI(), details));
+                .body(ErrorResponse.of(status, message, request.getRequestURI(), details, errors));
+    }
+
+    private String lastPathNode(String propertyPath) {
+        int lastDot = propertyPath.lastIndexOf('.');
+        return lastDot >= 0 ? propertyPath.substring(lastDot + 1) : propertyPath;
     }
 }

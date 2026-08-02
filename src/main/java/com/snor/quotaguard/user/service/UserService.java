@@ -113,7 +113,7 @@ public class UserService {
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = findUser(userId);
         Map<String, String> changes = new LinkedHashMap<>();
-        if (request.email() != null && !request.email().isBlank()) {
+        if (request.email() != null) {
             String normalizedEmail = EmailNormalizer.normalize(request.email());
             if (!normalizedEmail.equals(user.getEmail())) {
                 ensureEmailAvailable(normalizedEmail);
@@ -121,7 +121,7 @@ public class UserService {
                 changes.put("emailChanged", "true");
             }
         }
-        if (request.password() != null && !request.password().isBlank()) {
+        if (request.password() != null) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
             changes.put("passwordChanged", "true");
         }
