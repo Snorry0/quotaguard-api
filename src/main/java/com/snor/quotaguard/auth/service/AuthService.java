@@ -18,6 +18,7 @@ import com.snor.quotaguard.user.EmailNormalizer;
 import com.snor.quotaguard.user.dto.request.CreateUserRequest;
 import com.snor.quotaguard.user.mapper.UserMapper;
 import com.snor.quotaguard.user.service.UserService;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +42,7 @@ public class AuthService {
     private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
 
+    @Timed(value = "quotaguard.timer.registration", percentiles = {0.5, 0.95, 0.99})
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         try {
@@ -67,6 +69,7 @@ public class AuthService {
         }
     }
 
+    @Timed(value = "quotaguard.timer.login", percentiles = {0.5, 0.95, 0.99})
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
         String normalizedEmail = EmailNormalizer.normalize(request.email());

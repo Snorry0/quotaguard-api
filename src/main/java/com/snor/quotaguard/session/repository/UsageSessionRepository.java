@@ -16,6 +16,8 @@ import java.util.UUID;
 
 public interface UsageSessionRepository extends JpaRepository<UsageSession, UUID> {
 
+    long countByStatus(SessionStatus status);
+
     Optional<UsageSession> findFirstByUserAndStatusOrderByStartedAtDesc(
             User user,
             SessionStatus status

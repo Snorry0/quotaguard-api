@@ -23,9 +23,11 @@ import com.snor.quotaguard.exception.ActiveSessionAlreadyExistsException;
 import com.snor.quotaguard.exception.InvalidSessionStateException;
 import com.snor.quotaguard.exception.QuotaExceededException;
 import com.snor.quotaguard.exception.ResourceNotFoundException;
+import com.snor.quotaguard.metrics.BusinessMetrics;
 import com.snor.quotaguard.session.mapper.UsageSessionMapper;
 import com.snor.quotaguard.session.repository.UsageSessionRepository;
 import com.snor.quotaguard.security.CurrentUserProvider;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +53,7 @@ public class UsageSessionService {
     private final DomainEventPublisher domainEventPublisher;
     private final QuotaGuardProperties properties;
     private final Clock clock;
+    private final BusinessMetrics businessMetrics;
 
     @Transactional
     public UsageSessionResponse startSession(StartUsageSessionRequest request) {
@@ -80,6 +83,7 @@ public class UsageSessionService {
         return usageSessionMapper.toResponse(savedSession);
     }
 
+    @Timed(value = "quotaguard.timer.session.completion", percentiles = {0.5, 0.95, 0.99})
     @Transactional(noRollbackFor = {
             QuotaExceededException.class,
             ActivePenaltyException.class
@@ -87,10 +91,17 @@ public class UsageSessionService {
     public EndUsageSessionResponse endSession(UUID sessionId, EndUsageSessionRequest request) {
         User user = currentUserProvider.getCurrentUser();
 
-        UsageSession session = usageSessionRepository.findByIdAndUserIdForUpdate(sessionId, user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Usage session not found"));
+        UsageSession session;
+        try {
+            session = usageSessionRepository.findByIdAndUserIdForUpdate(sessionId, user.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Usage session not found"));
+        } catch (ResourceNotFoundException ex) {
+            businessMetrics.recordFailedSessionCompletion();
+            throw ex;
+        }
 
         if (session.getStatus() != SessionStatus.ACTIVE) {
+            businessMetrics.recordFailedSessionCompletion();
             throw new InvalidSessionStateException("Only active sessions can be ended");
         }
 
@@ -104,10 +115,16 @@ public class UsageSessionService {
                 ? request.amountConsumed()
                 : calculateConsumption(durationSeconds);
 
-        ConsumeUsageResponse consumption = usageService.consumeForUser(
-                user,
-                new ConsumeUsageRequest(amountConsumed, ActionType.SESSION_ACTION)
-        );
+        ConsumeUsageResponse consumption;
+        try {
+            consumption = usageService.consumeForUser(
+                    user,
+                    new ConsumeUsageRequest(amountConsumed, ActionType.SESSION_ACTION)
+            );
+        } catch (QuotaExceededException | ActivePenaltyException ex) {
+            businessMetrics.recordFailedSessionCompletion();
+            throw ex;
+        }
 
         session.complete(endedAt, durationSeconds, amountConsumed);
 

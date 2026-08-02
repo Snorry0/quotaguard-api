@@ -43,3 +43,9 @@ quotaguard:
       require-digit: true
       require-special: true
       special-chars: "!@#$%^&*()_+-=[]{};:'\",.<>/?\\|`~"
+
+management:
+  endpoint:
+    health:
+      show-details: always
+      show-components: always

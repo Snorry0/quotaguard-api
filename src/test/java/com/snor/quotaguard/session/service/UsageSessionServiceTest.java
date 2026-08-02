@@ -8,6 +8,7 @@ import com.snor.quotaguard.event.Actor;
 import com.snor.quotaguard.event.DomainEventPublisher;
 import com.snor.quotaguard.event.SessionCompletedEvent;
 import com.snor.quotaguard.event.SessionStartedEvent;
+import com.snor.quotaguard.metrics.BusinessMetrics;
 import com.snor.quotaguard.session.dto.request.EndUsageSessionRequest;
 import com.snor.quotaguard.session.dto.request.StartUsageSessionRequest;
 import com.snor.quotaguard.session.mapper.UsageSessionMapper;
@@ -52,7 +53,8 @@ class UsageSessionServiceTest {
             usageService,
             domainEventPublisher,
             properties,
-            clock
+            clock,
+            mock(BusinessMetrics.class)
     );
 
     @Test
