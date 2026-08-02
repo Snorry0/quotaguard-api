@@ -202,6 +202,63 @@ In the Swagger UI, click the "Authorize" button (top right) and paste the access
 
 `POST /api/v1/auth/register` and `POST /api/v1/auth/login` are public; all other endpoints require a valid token. Admin endpoints (`/api/v1/users` admin operations, `/api/v1/quota/reset`, `/api/v1/audit/**`) additionally require the `ADMIN` role — see the "Security" note in each endpoint's Swagger description.
 
+## Observability
+
+The application exposes operational health and metrics through Spring Boot Actuator + Micrometer. See [docs/09-observability.md](docs/09-observability.md) for the full reference.
+
+### Actuator endpoints
+
+| Endpoint | Exposure | Returns |
+|---|---|---|
+| `GET /actuator/health` | Public | `{"status":"UP","components":{...}}` — the `db`, `diskSpace` and `quotaGuardConfig` components; the liveness/readiness probes at `/actuator/health/liveness` and `/actuator/health/readiness` are also public (k8s convention) |
+| `GET /actuator/info` | Public | Build/env info |
+| `GET /actuator/metrics` | Authenticated | Index of metric names; `GET /actuator/metrics/{name}` returns the metric's details + samples |
+| `GET /actuator/prometheus` | Authenticated | Scrape in Prometheus text format 0.0.4 |
+
+### Security model
+
+`/actuator/health` and `/actuator/info` are configured for unauthenticated access (liveness/readiness probes for k8s). `/actuator/metrics` and `/actuator/prometheus` require a valid JWT (any authenticated user).
+
+**Production recommendation:** restrict `/actuator/metrics` and `/actuator/prometheus` to the ADMIN role (or a dedicated monitoring service token) via the `SecurityConfig` `requestMatchers` chain. This is a documented recommendation per the design's "no behaviour changes" scope — it is NOT applied in this commit.
+
+### Business metrics reference
+
+| Metric | Type | Tags | Counts | Source |
+|---|---|---|---|---|
+| `quotaguard.registrations.successful` | Counter | — | Successful user registrations | `UserRegisteredEvent` |
+| `quotaguard.registrations.failed` | Counter | — | Failed user registrations | `RegisterFailedEvent` |
+| `quotaguard.logins.successful` | Counter | — | Successful logins | `LoginSucceededEvent` |
+| `quotaguard.logins.failed` | Counter | — | Failed logins | `LoginFailedEvent` |
+| `quotaguard.quota.consumptions` | Counter | `actionType=` | Quota consumption events | `UsageConsumedEvent` |
+| `quotaguard.quota.resets` | Counter | `type=daily\|bulk` | Quota resets | `QuotaResetEvent` (daily) / `BulkQuotaResetEvent` (bulk) |
+| `quotaguard.penalties.applied` | Counter | `type=` | Penalties applied | `PenaltyAppliedEvent` |
+| `quotaguard.penalties.expired` | Counter | — | Penalties expired | `PenaltyExpiredEvent` |
+| `quotaguard.sessions.active` | Gauge | — | Currently active usage sessions | Repository query (per scrape) |
+| `quotaguard.sessions.completed` | Counter | — | Usage sessions completed | `SessionCompletedEvent` |
+| `quotaguard.sessions.completion.failed` | Counter | — | Failed usage session completions | `UsageSessionService.endSession` catch blocks (no event) |
+| `quotaguard.admin.operations` | Counter | `type=` | Manual admin operations | `UserCreatedEvent` / `UserUpdatedEvent` / `UserDeletedEvent` / `BulkQuotaResetEvent` (non-SYSTEM actor) |
+
+Full details — every metric including the 5 timers (`quotaguard.timer.registration`, `quotaguard.timer.login`, `quotaguard.timer.quota.consumption`, `quotaguard.timer.session.completion`, `quotaguard.timer.quota.reset`) — live in [docs/09-observability.md](docs/09-observability.md).
+
+### Prometheus future scraping
+
+```yaml
+scrape_configs:
+  - job_name: quotaguard
+    metrics_path: /actuator/prometheus
+    scheme: http
+    static_configs:
+      - targets: ["localhost:8080"]
+    # If /actuator/metrics and /actuator/prometheus are behind auth:
+    authorization:
+      type: Bearer
+      credentials_file: /etc/quotaguard/monitoring.token
+```
+
+Scraped metric names follow the Prometheus convention: dots become underscores, counters get a `_total` suffix, and timers get a `_seconds` base plus `_count` / `_max` / `_sum` series.
+
+For the full metric reference, custom health indicator, and production security recommendations, see `docs/09-observability.md`.
+
 ## API Endpoints
 
 Base path:

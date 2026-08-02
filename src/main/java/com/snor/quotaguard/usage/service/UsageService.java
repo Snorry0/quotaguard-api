@@ -21,6 +21,7 @@ import com.snor.quotaguard.usage.mapper.UsageRecordMapper;
 import com.snor.quotaguard.quota.mapper.UserQuotaMapper;
 import com.snor.quotaguard.usage.repository.UsageRecordRepository;
 import com.snor.quotaguard.security.CurrentUserProvider;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +46,7 @@ public class UsageService {
     private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
 
+    @Timed(value = "quotaguard.timer.quota.consumption", percentiles = {0.5, 0.95, 0.99})
     @Transactional(noRollbackFor = {
             QuotaExceededException.class,
             ActivePenaltyException.class

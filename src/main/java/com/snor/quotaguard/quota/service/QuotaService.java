@@ -14,6 +14,7 @@ import com.snor.quotaguard.exception.ResourceNotFoundException;
 import com.snor.quotaguard.quota.mapper.UserQuotaMapper;
 import com.snor.quotaguard.quota.repository.UserQuotaRepository;
 import com.snor.quotaguard.security.CurrentUserProvider;
+import io.micrometer.core.annotation.Timed;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,7 @@ public class QuotaService {
         }
     }
 
+    @Timed(value = "quotaguard.timer.quota.reset", percentiles = {0.5, 0.95, 0.99})
     @Transactional
     public QuotaResetResponse resetAllQuotasAndExpirePenalties() {
         LocalDate today = LocalDate.now(clock);

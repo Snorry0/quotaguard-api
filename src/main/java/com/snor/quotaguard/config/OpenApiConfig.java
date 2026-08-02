@@ -306,7 +306,7 @@ public class OpenApiConfig {
     private final String publicUrl;
 
     public OpenApiConfig(
-            @Value("${quotaguard.api-version:0.3.0}") String apiVersion,
+            @Value("${quotaguard.api-version:0.4.0-SNAPSHOT}") String apiVersion,
             @Value("${QUOTAGUARD_PUBLIC_URL:http://localhost:8080}") String publicUrl
     ) {
         this.apiVersion = apiVersion;
