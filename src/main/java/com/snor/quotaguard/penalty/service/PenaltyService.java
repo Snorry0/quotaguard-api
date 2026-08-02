@@ -1,12 +1,14 @@
 package com.snor.quotaguard.penalty.service;
 
-import com.snor.quotaguard.audit.AuditPublisher;
-import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.PenaltyEvent;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
 import com.snor.quotaguard.domain.enums.PenaltyType;
+import com.snor.quotaguard.event.Actor;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.PenaltyAppliedEvent;
+import com.snor.quotaguard.event.PenaltyExpiredEvent;
 import com.snor.quotaguard.penalty.dto.response.PenaltyEventResponse;
 import com.snor.quotaguard.exception.ActivePenaltyException;
 import com.snor.quotaguard.penalty.mapper.PenaltyEventMapper;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +31,7 @@ public class PenaltyService {
     private final PenaltyEventRepository penaltyEventRepository;
     private final PenaltyEventMapper penaltyEventMapper;
     private final CurrentUserProvider currentUserProvider;
-    private final AuditPublisher auditPublisher;
+    private final DomainEventPublisher domainEventPublisher;
     private final QuotaGuardProperties properties;
     private final Clock clock;
 
@@ -50,15 +53,12 @@ public class PenaltyService {
                 .active(active)
                 .build());
 
-        auditPublisher.publishWithActor(
-                AuditAction.PENALTY_APPLIED,
-                "PENALTY",
+        domainEventPublisher.publish(new PenaltyAppliedEvent(
+                Instant.now(clock),
+                Actor.of(user),
                 penalty.getId(),
-                "Penalty applied: " + type,
-                true,
-                user.getId(),
-                user.getEmail()
-        );
+                type
+        ));
         return penalty;
     }
 
@@ -92,15 +92,10 @@ public class PenaltyService {
         List<PenaltyEvent> expired = penaltyEventRepository.findByActiveTrueAndEndTimeBefore(LocalDateTime.now(clock));
         expired.forEach(event -> {
             event.expire();
-            auditPublisher.publishWithActor(
-                    AuditAction.PENALTY_EXPIRED,
-                    "PENALTY",
-                    event.getId(),
-                    "Penalty expired",
-                    true,
-                    null,
-                    null
-            );
+            domainEventPublisher.publish(new PenaltyExpiredEvent(
+                    Instant.now(clock),
+                    event.getId()
+            ));
         });
         penaltyEventRepository.saveAll(expired);
         return expired.size();

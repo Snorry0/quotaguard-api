@@ -1,6 +1,10 @@
 package com.snor.quotaguard.user.service;
 
-import com.snor.quotaguard.audit.AuditPublisher;
+import com.snor.quotaguard.event.DomainEvent;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.UserCreatedEvent;
+import com.snor.quotaguard.event.UserDeletedEvent;
+import com.snor.quotaguard.event.UserUpdatedEvent;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
@@ -44,7 +48,7 @@ class UserServiceTest {
     private final UserMapper userMapper = mock(UserMapper.class);
     private final CurrentUserProvider currentUserProvider = mock(CurrentUserProvider.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-    private final AuditPublisher auditPublisher = mock(AuditPublisher.class);
+    private final DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-08-01T00:00:00Z"), ZoneOffset.UTC);
     private final QuotaGuardProperties properties = new QuotaGuardProperties(
             100,
@@ -60,7 +64,7 @@ class UserServiceTest {
             currentUserProvider,
             passwordEncoder,
             properties,
-            auditPublisher,
+            domainEventPublisher,
             clock
     );
 
@@ -189,6 +193,84 @@ class UserServiceTest {
         InOrder inOrder = inOrder(userQuotaRepository, userRepository);
         inOrder.verify(userQuotaRepository).delete(quota);
         inOrder.verify(userRepository).delete(existing);
+    }
+
+    @Test
+    void createUserPublishesUserCreatedEvent() {
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(UUID.randomUUID());
+            return user;
+        });
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+
+        userService.createUser(new CreateUserRequest("create@example.com", "Password123!", null));
+
+        ArgumentCaptor<UserCreatedEvent> captor = ArgumentCaptor.forClass(UserCreatedEvent.class);
+        verify(domainEventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().userId()).isNotNull();
+        assertThat(captor.getValue().email()).isEqualTo("create@example.com");
+        assertThat(captor.getValue().role()).isEqualTo("USER");
+        assertThat(captor.getValue().actor().id()).isNull();
+    }
+
+    @Test
+    void noOpUpdateDoesNotPublishEvent() {
+        User existing = User.builder()
+                .id(UUID.randomUUID())
+                .email("same@example.com")
+                .passwordHash("hash")
+                .role(Role.USER)
+                .build();
+        when(userRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.updateUser(existing.getId(), new UpdateUserRequest("same@example.com", null, null));
+
+        verify(domainEventPublisher, never()).publish(any(DomainEvent.class));
+    }
+
+    @Test
+    void updateUserPublishesUserUpdatedEventWithChangedFields() {
+        User existing = User.builder()
+                .id(UUID.randomUUID())
+                .email("current@example.com")
+                .passwordHash("hash")
+                .role(Role.USER)
+                .build();
+        when(userRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.updateUser(existing.getId(), new UpdateUserRequest(null, null, Role.ADMIN));
+
+        ArgumentCaptor<UserUpdatedEvent> captor = ArgumentCaptor.forClass(UserUpdatedEvent.class);
+        verify(domainEventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(existing.getId());
+        assertThat(captor.getValue().changedFields()).containsExactly("roleChanged");
+    }
+
+    @Test
+    void deleteUserPublishesUserDeletedEvent() {
+        User actor = User.builder()
+                .id(UUID.randomUUID())
+                .email("actor@example.com")
+                .role(Role.ADMIN)
+                .build();
+        when(currentUserProvider.getCurrentUser()).thenReturn(actor);
+        User existing = User.builder()
+                .id(UUID.randomUUID())
+                .email("delete@example.com")
+                .role(Role.USER)
+                .build();
+        when(userRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        UserQuota quota = UserQuota.builder().id(UUID.randomUUID()).user(existing).build();
+        when(userQuotaRepository.findByUser(existing)).thenReturn(Optional.of(quota));
+
+        userService.deleteUser(existing.getId());
+
+        ArgumentCaptor<UserDeletedEvent> captor = ArgumentCaptor.forClass(UserDeletedEvent.class);
+        verify(domainEventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().userId()).isEqualTo(existing.getId());
     }
 
     @Test

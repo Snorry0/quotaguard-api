@@ -9,6 +9,9 @@ import com.snor.quotaguard.domain.PenaltyEvent;
 import com.snor.quotaguard.domain.UsageRecord;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
+import com.snor.quotaguard.event.Actor;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.UsageConsumedEvent;
 import com.snor.quotaguard.usage.dto.request.ConsumeUsageRequest;
 import com.snor.quotaguard.usage.dto.response.ConsumeUsageResponse;
 import com.snor.quotaguard.usage.dto.response.UsageRecordResponse;
@@ -26,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Service
@@ -38,6 +42,7 @@ public class UsageService {
     private final UsageRecordRepository usageRecordRepository;
     private final UsageRecordMapper usageRecordMapper;
     private final UserQuotaMapper userQuotaMapper;
+    private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
 
     @Transactional(noRollbackFor = {
@@ -74,6 +79,14 @@ public class UsageService {
                 .actionType(request.actionType())
                 .timestamp(LocalDateTime.now(clock))
                 .build());
+
+        domainEventPublisher.publish(new UsageConsumedEvent(
+                Instant.now(clock),
+                Actor.of(user),
+                record.getId(),
+                record.getAmountConsumed(),
+                record.getActionType()
+        ));
 
         return new ConsumeUsageResponse(
                 usageRecordMapper.toResponse(record),
