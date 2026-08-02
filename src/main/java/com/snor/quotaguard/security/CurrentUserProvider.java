@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -17,11 +18,15 @@ public class CurrentUserProvider {
     private final UserRepository userRepository;
 
     public User getCurrentUser() {
+        return getCurrentUserIfPresent()
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user could not be resolved"));
+    }
+
+    public Optional<User> getCurrentUserIfPresent() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new ResourceNotFoundException("Authenticated user could not be resolved");
+            return Optional.empty();
         }
-        return userRepository.findById(UUID.fromString(authentication.getName()))
-                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user could not be resolved"));
+        return userRepository.findById(UUID.fromString(authentication.getName()));
     }
 }

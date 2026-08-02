@@ -1,9 +1,11 @@
 package com.snor.quotaguard.user.service;
 
+import com.snor.quotaguard.audit.service.AuditEventService;
 import com.snor.quotaguard.common.PageRequestFactory;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
+import com.snor.quotaguard.domain.enums.AuditAction;
 import com.snor.quotaguard.domain.enums.Role;
 import com.snor.quotaguard.exception.EmailAlreadyExistsException;
 import com.snor.quotaguard.exception.ResourceNotFoundException;
@@ -29,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -42,6 +46,7 @@ public class UserService {
     private final CurrentUserProvider currentUserProvider;
     private final PasswordEncoder passwordEncoder;
     private final QuotaGuardProperties properties;
+    private final AuditEventService auditEventService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -66,7 +71,14 @@ public class UserService {
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
-        return userMapper.toResponse(createUserEntity(request));
+        User savedUser = createUserEntity(request);
+        auditEventService.record(
+                AuditAction.CREATE,
+                "USER",
+                savedUser.getId().toString(),
+                Map.of("email", savedUser.getEmail(), "role", savedUser.getRole().name())
+        );
+        return userMapper.toResponse(savedUser);
     }
 
     @Transactional
@@ -95,21 +107,26 @@ public class UserService {
     @Transactional
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = findUser(userId);
+        Map<String, String> changes = new LinkedHashMap<>();
         if (request.email() != null && !request.email().isBlank()) {
             String normalizedEmail = EmailNormalizer.normalize(request.email());
             if (!normalizedEmail.equals(user.getEmail())) {
                 ensureEmailAvailable(normalizedEmail);
                 user.setEmail(normalizedEmail);
+                changes.put("emailChanged", "true");
             }
         }
         if (request.password() != null && !request.password().isBlank()) {
             user.setPasswordHash(passwordEncoder.encode(request.password()));
+            changes.put("passwordChanged", "true");
         }
         if (request.role() != null) {
             user.setRole(request.role());
+            changes.put("roleChanged", "true");
         }
         User updatedUser = saveUser(user);
         log.info("User updated id={} role={}", updatedUser.getId(), updatedUser.getRole());
+        auditEventService.record(AuditAction.UPDATE, "USER", userId.toString(), changes);
         return userMapper.toResponse(updatedUser);
     }
 
@@ -123,6 +140,7 @@ public class UserService {
         userQuotaRepository.findByUser(user).ifPresent(userQuotaRepository::delete);
         userRepository.delete(user);
         log.info("User deleted id={}", userId);
+        auditEventService.record(AuditAction.DELETE, "USER", userId.toString(), null);
     }
 
     @Transactional(readOnly = true)
