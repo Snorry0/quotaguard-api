@@ -12,6 +12,12 @@ The project can be presented as:
 - a neutral user activity regulation backend
 - a session-aware resource tracking platform
 
+## API Documentation
+
+Full interactive API documentation: `/swagger-ui.html` (the OpenAPI 3.0 spec is also exposed at `/v3/api-docs`). The Swagger UI includes authentication support (Authorize button for the JWT bearer token), realistic request/response examples, and per-endpoint error documentation. This README is a quickstart summary; for the full contract, use Swagger.
+
+Validation constraints are documented per-field inline in Swagger. See the [Authentication](#authentication) section below and [docs/08-validation.md](docs/08-validation.md) for the validation reference.
+
 ## Purpose
 
 QuotaGuard is not a simple CRUD application.
@@ -150,6 +156,52 @@ penalty level 3+ -> long cooldown
 
 This makes the system extensible for multiple domains, including rate limiting, credit systems, SaaS usage restriction, and session regulation.
 
+## Authentication
+
+### Obtaining a token
+
+`POST /api/v1/auth/login` with the body:
+
+```json
+{
+  "email": "demo@example.com",
+  "password": "Password123!"
+}
+```
+
+Returns `200` with:
+
+```json
+{
+  "access_token": "...",
+  "token_type": "Bearer",
+  "expires_at": "...",
+  "user": { ... }
+}
+```
+
+### Using the token
+
+Subsequent requests include the header on every authenticated request:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+### Expiration and claims
+
+Tokens expire after 12 hours by default (configurable via the `JWT_EXPIRATION_HOURS` environment variable / `security.jwt.expiration` property).
+
+The JWT contains `sub` (user identifier) and `role` (`USER` or `ADMIN`). Tokens are bound to the user identifier, NOT the email — changing a user's email does NOT invalidate their active tokens.
+
+### Swagger UI authentication
+
+In the Swagger UI, click the "Authorize" button (top right) and paste the access token (the `Bearer ` prefix is added automatically by Swagger). The token persists across "Try it out" reloads (`persist-authorization: true` in the springdoc configuration).
+
+### Public vs authenticated
+
+`POST /api/v1/auth/register` and `POST /api/v1/auth/login` are public; all other endpoints require a valid token. Admin endpoints (`/api/v1/users` admin operations, `/api/v1/quota/reset`, `/api/v1/audit/**`) additionally require the `ADMIN` role — see the "Security" note in each endpoint's Swagger description.
+
 ## API Endpoints
 
 Base path:
@@ -157,6 +209,8 @@ Base path:
 ```text
 /api/v1
 ```
+
+These tables are a quick-reference summary. For the full contract (every request/response field, every error code, every validation constraint, realistic examples), use the Swagger UI at `/swagger-ui.html`.
 
 ### Authentication
 
@@ -261,22 +315,6 @@ Hibernate is configured to validate the schema instead of generating it automati
 
 This keeps schema evolution explicit and version-controlled.
 
-## API Documentation
-
-Swagger UI is available at:
-
-```text
-http://localhost:8080/swagger-ui.html
-```
-
-OpenAPI JSON is available at:
-
-```text
-http://localhost:8080/v3/api-docs
-```
-
-JWT-protected endpoints can be tested directly from Swagger by using the `Authorize` button and providing a valid access token.
-
 ## API Testing
 
 A Bruno collection is included in the repository under:
@@ -376,21 +414,27 @@ If the end-of-session consumption is rejected (quota exceeded or active penalty)
 
 The API returns structured JSON error responses.
 
-Example validation error:
+Example validation error (HTTP 400 on `POST /api/v1/auth/register`):
 
 ```json
 {
-  "timestamp": "2026-05-25T19:43:51.963233Z",
+  "timestamp": "2026-08-02T12:00:00Z",
   "status": 400,
   "error": "Bad Request",
   "message": "Validation failed",
-  "path": "/api/v1/usage/consume",
+  "path": "/api/v1/auth/register",
   "validationErrors": {
-    "amountConsumed": "must be greater than 0",
-    "actionType": "must not be null"
-  }
+    "email": "Email must be provided in normalized form: trimmed, lowercase and a well-formed address",
+    "password": "Password must be between the configured minimum and maximum length and must satisfy all configured character-class requirements"
+  },
+  "errors": [
+    { "field": "email", "rejectedValue": "Demo@Example.COM", "message": "Email must be provided in normalized form: trimmed, lowercase and a well-formed address" },
+    { "field": "password", "rejectedValue": "password", "message": "Password must be between the configured minimum and maximum length and must satisfy all configured character-class requirements" }
+  ]
 }
 ```
+
+`validationErrors` is the legacy field→message map; `errors` is the per-field detail list with the rejected value. Both are populated on validation failures (HTTP 400); only the base fields (`timestamp`/`status`/`error`/`message`/`path`) are populated on non-validation errors.
 
 ## Environment Variables
 
