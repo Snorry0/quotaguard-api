@@ -1,10 +1,12 @@
 package com.snor.quotaguard.quota.service;
 
-import com.snor.quotaguard.audit.AuditPublisher;
-import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
+import com.snor.quotaguard.event.Actor;
+import com.snor.quotaguard.event.BulkQuotaResetEvent;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.QuotaResetEvent;
 import com.snor.quotaguard.penalty.service.PenaltyService;
 import com.snor.quotaguard.quota.dto.response.QuotaResetResponse;
 import com.snor.quotaguard.quota.dto.response.QuotaResponse;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Service
@@ -28,7 +31,7 @@ public class QuotaService {
     private final CurrentUserProvider currentUserProvider;
     private final QuotaGuardProperties properties;
     private final PenaltyService penaltyService;
-    private final AuditPublisher auditPublisher;
+    private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
 
     @Transactional
@@ -51,13 +54,11 @@ public class QuotaService {
         LocalDate today = LocalDate.now(clock);
         if (!today.equals(quota.getLastResetDate())) {
             resetQuota(quota, today);
-            auditPublisher.publishForCurrentUser(
-                    AuditAction.QUOTA_RESET,
-                    "QUOTA",
-                    quota.getId(),
-                    "Quota reset for new day",
-                    true
-            );
+            domainEventPublisher.publish(new QuotaResetEvent(
+                    Instant.now(clock),
+                    Actor.of(currentUserProvider.getCurrentUserIfPresent()),
+                    quota.getId()
+            ));
         }
     }
 
@@ -69,13 +70,12 @@ public class QuotaService {
         userQuotaRepository.saveAll(quotas);
         int expiredPenalties = penaltyService.expireFinishedPenalties();
         QuotaResetResponse response = new QuotaResetResponse(quotas.size(), today, expiredPenalties);
-        auditPublisher.publishForCurrentUser(
-                AuditAction.QUOTA_RESET,
-                "QUOTA",
-                null,
-                "Quotas reset: " + response.resetCount() + " quotas, " + response.expiredPenalties() + " penalties expired",
-                true
-        );
+        domainEventPublisher.publish(new BulkQuotaResetEvent(
+                Instant.now(clock),
+                Actor.of(currentUserProvider.getCurrentUserIfPresent()),
+                response.resetCount(),
+                response.expiredPenalties()
+        ));
         return response;
     }
 

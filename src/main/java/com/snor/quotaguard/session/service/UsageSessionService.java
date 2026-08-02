@@ -2,14 +2,16 @@ package com.snor.quotaguard.session.service;
 
 import com.snor.quotaguard.usage.service.UsageService;
 
-import com.snor.quotaguard.audit.AuditPublisher;
-import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.common.PageRequestFactory;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.UsageSession;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.enums.ActionType;
 import com.snor.quotaguard.domain.enums.SessionStatus;
+import com.snor.quotaguard.event.Actor;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.SessionCompletedEvent;
+import com.snor.quotaguard.event.SessionStartedEvent;
 import com.snor.quotaguard.usage.dto.request.ConsumeUsageRequest;
 import com.snor.quotaguard.session.dto.request.EndUsageSessionRequest;
 import com.snor.quotaguard.session.dto.request.StartUsageSessionRequest;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,7 +48,7 @@ public class UsageSessionService {
     private final UsageSessionMapper usageSessionMapper;
     private final CurrentUserProvider currentUserProvider;
     private final UsageService usageService;
-    private final AuditPublisher auditPublisher;
+    private final DomainEventPublisher domainEventPublisher;
     private final QuotaGuardProperties properties;
     private final Clock clock;
 
@@ -69,13 +72,11 @@ public class UsageSessionService {
                 .build();
 
         UsageSession savedSession = usageSessionRepository.save(session);
-        auditPublisher.publishForCurrentUser(
-                AuditAction.SESSION_STARTED,
-                "SESSION",
-                savedSession.getId(),
-                "Usage session started",
-                true
-        );
+        domainEventPublisher.publish(new SessionStartedEvent(
+                Instant.now(clock),
+                Actor.of(user),
+                savedSession.getId()
+        ));
         return usageSessionMapper.toResponse(savedSession);
     }
 
@@ -116,13 +117,11 @@ public class UsageSessionService {
 
         UsageSession savedSession = usageSessionRepository.save(session);
 
-        auditPublisher.publishForCurrentUser(
-                AuditAction.SESSION_COMPLETED,
-                "SESSION",
-                savedSession.getId(),
-                "Usage session completed",
-                true
-        );
+        domainEventPublisher.publish(new SessionCompletedEvent(
+                Instant.now(clock),
+                Actor.of(user),
+                savedSession.getId()
+        ));
 
         return new EndUsageSessionResponse(
                 usageSessionMapper.toResponse(savedSession),

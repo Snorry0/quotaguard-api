@@ -1,7 +1,5 @@
 package com.snor.quotaguard.audit.service;
 
-import com.snor.quotaguard.audit.AuditCommand;
-import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.audit.domain.AuditEvent;
 import com.snor.quotaguard.audit.dto.response.AuditEventResponse;
 import com.snor.quotaguard.audit.mapper.AuditEventMapper;
@@ -13,56 +11,21 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AuditServiceTest {
 
-    private final AuditEventWriter auditEventWriter = mock(AuditEventWriter.class);
     private final AuditEventRepository auditEventRepository = mock(AuditEventRepository.class);
     private final AuditEventMapper auditEventMapper = mock(AuditEventMapper.class);
-    private final AuditService auditService = new AuditService(auditEventWriter, auditEventRepository, auditEventMapper);
-
-    @Test
-    void committedListenerPersistsSuccessfulEventsOnly() {
-        auditService.onAuditCommandCommitted(sampleCommand(true));
-        verify(auditEventWriter).persist(any(AuditCommand.class));
-
-        org.mockito.Mockito.clearInvocations(auditEventWriter);
-        auditService.onAuditCommandCommitted(sampleCommand(false));
-        verify(auditEventWriter, never()).persist(any(AuditCommand.class));
-    }
-
-    @Test
-    void completionListenerPersistsFailedEventsOnly() {
-        auditService.onAuditCommandFailed(sampleCommand(false));
-        verify(auditEventWriter).persist(any(AuditCommand.class));
-
-        org.mockito.Mockito.clearInvocations(auditEventWriter);
-        auditService.onAuditCommandFailed(sampleCommand(true));
-        verify(auditEventWriter, never()).persist(any(AuditCommand.class));
-    }
-
-    @Test
-    void listenerSwallowsPersistenceFailure() {
-        org.mockito.Mockito.doThrow(new RuntimeException("database is down"))
-                .when(auditEventWriter).persist(any(AuditCommand.class));
-
-        assertThatCode(() -> auditService.onAuditCommandCommitted(sampleCommand(true)))
-                .doesNotThrowAnyException();
-        assertThatCode(() -> auditService.onAuditCommandFailed(sampleCommand(false)))
-                .doesNotThrowAnyException();
-    }
+    private final AuditService auditService = new AuditService(auditEventRepository, auditEventMapper);
 
     @Test
     void getAuditEventReturnsMappedEvent() {
@@ -101,19 +64,5 @@ class AuditServiceTest {
         assertThatThrownBy(() -> auditService.getAuditEvents(
                 PageRequest.of(0, 20, Sort.by("unknownProperty"))))
                 .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    private AuditCommand sampleCommand(boolean success) {
-        return new AuditCommand(
-                Instant.parse("2026-08-02T10:00:00Z"),
-                AuditAction.USER_CREATED,
-                UUID.randomUUID(),
-                "admin@example.com",
-                "USER",
-                UUID.randomUUID(),
-                "Admin created user",
-                "127.0.0.1",
-                success
-        );
     }
 }

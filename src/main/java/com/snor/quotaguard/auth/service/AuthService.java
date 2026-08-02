@@ -1,12 +1,16 @@
 package com.snor.quotaguard.auth.service;
 
-import com.snor.quotaguard.audit.AuditPublisher;
-import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.enums.Role;
 import com.snor.quotaguard.auth.dto.request.LoginRequest;
 import com.snor.quotaguard.auth.dto.request.RegisterRequest;
 import com.snor.quotaguard.auth.dto.response.AuthResponse;
+import com.snor.quotaguard.event.Actor;
+import com.snor.quotaguard.event.DomainEventPublisher;
+import com.snor.quotaguard.event.LoginFailedEvent;
+import com.snor.quotaguard.event.LoginSucceededEvent;
+import com.snor.quotaguard.event.RegisterFailedEvent;
+import com.snor.quotaguard.event.UserRegisteredEvent;
 import com.snor.quotaguard.exception.EmailAlreadyExistsException;
 import com.snor.quotaguard.exception.ResourceNotFoundException;
 import com.snor.quotaguard.security.JwtService;
@@ -23,17 +27,19 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-
-    private static final String RESOURCE_TYPE_AUTH = "AUTH";
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserMapper userMapper;
     private final UserService userService;
-    private final AuditPublisher auditPublisher;
+    private final DomainEventPublisher domainEventPublisher;
+    private final Clock clock;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -41,30 +47,22 @@ public class AuthService {
             User user = userService.createUserEntity(
                     new CreateUserRequest(request.email(), request.password(), Role.USER)
             );
-            auditPublisher.publishWithActor(
-                    AuditAction.REGISTER_SUCCESS,
-                    RESOURCE_TYPE_AUTH,
-                    user.getId(),
-                    "User registered",
-                    true,
+            domainEventPublisher.publish(new UserRegisteredEvent(
+                    Instant.now(clock),
+                    Actor.of(user),
                     user.getId(),
                     user.getEmail()
-            );
+            ));
             return new AuthResponse(
                     jwtService.generateToken(user),
                     jwtService.getExpirationInstant(),
                     userMapper.toResponse(user)
             );
         } catch (EmailAlreadyExistsException | DataIntegrityViolationException ex) {
-            auditPublisher.publishWithActor(
-                    AuditAction.REGISTER_FAILED,
-                    RESOURCE_TYPE_AUTH,
-                    null,
-                    "Registration failed",
-                    false,
-                    null,
+            domainEventPublisher.publish(new RegisterFailedEvent(
+                    Instant.now(clock),
                     EmailNormalizer.normalize(request.email())
-            );
+            ));
             throw ex;
         }
     }
@@ -82,27 +80,19 @@ public class AuthService {
             } catch (ResourceNotFoundException ex) {
                 throw new BadCredentialsException("Invalid email or password");
             }
-            auditPublisher.publishWithActor(
-                    AuditAction.LOGIN_SUCCESS,
-                    RESOURCE_TYPE_AUTH,
-                    user.getId(),
-                    "User logged in",
-                    true,
+            domainEventPublisher.publish(new LoginSucceededEvent(
+                    Instant.now(clock),
+                    Actor.of(user),
                     user.getId(),
                     user.getEmail()
-            );
+            ));
             String token = jwtService.generateToken(user);
             return new AuthResponse(token, jwtService.getExpirationInstant(), userMapper.toResponse(user));
         } catch (AuthenticationException ex) {
-            auditPublisher.publishWithActor(
-                    AuditAction.LOGIN_FAILED,
-                    RESOURCE_TYPE_AUTH,
-                    null,
-                    "Login failed: invalid credentials",
-                    false,
-                    null,
+            domainEventPublisher.publish(new LoginFailedEvent(
+                    Instant.now(clock),
                     normalizedEmail
-            );
+            ));
             throw ex;
         }
     }
