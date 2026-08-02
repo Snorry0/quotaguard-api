@@ -2,6 +2,8 @@ package com.snor.quotaguard.session.service;
 
 import com.snor.quotaguard.usage.service.UsageService;
 
+import com.snor.quotaguard.audit.AuditPublisher;
+import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.common.PageRequestFactory;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.UsageSession;
@@ -43,6 +45,7 @@ public class UsageSessionService {
     private final UsageSessionMapper usageSessionMapper;
     private final CurrentUserProvider currentUserProvider;
     private final UsageService usageService;
+    private final AuditPublisher auditPublisher;
     private final QuotaGuardProperties properties;
     private final Clock clock;
 
@@ -65,7 +68,15 @@ public class UsageSessionService {
                 .status(SessionStatus.ACTIVE)
                 .build();
 
-        return usageSessionMapper.toResponse(usageSessionRepository.save(session));
+        UsageSession savedSession = usageSessionRepository.save(session);
+        auditPublisher.publishForCurrentUser(
+                AuditAction.SESSION_STARTED,
+                "SESSION",
+                savedSession.getId(),
+                "Usage session started",
+                true
+        );
+        return usageSessionMapper.toResponse(savedSession);
     }
 
     @Transactional(noRollbackFor = {
@@ -104,6 +115,14 @@ public class UsageSessionService {
         }
 
         UsageSession savedSession = usageSessionRepository.save(session);
+
+        auditPublisher.publishForCurrentUser(
+                AuditAction.SESSION_COMPLETED,
+                "SESSION",
+                savedSession.getId(),
+                "Usage session completed",
+                true
+        );
 
         return new EndUsageSessionResponse(
                 usageSessionMapper.toResponse(savedSession),

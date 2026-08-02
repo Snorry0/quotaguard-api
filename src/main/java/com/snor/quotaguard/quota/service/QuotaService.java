@@ -1,10 +1,10 @@
 package com.snor.quotaguard.quota.service;
 
-import com.snor.quotaguard.audit.service.AuditEventService;
+import com.snor.quotaguard.audit.AuditPublisher;
+import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
-import com.snor.quotaguard.domain.enums.AuditAction;
 import com.snor.quotaguard.penalty.service.PenaltyService;
 import com.snor.quotaguard.quota.dto.response.QuotaResetResponse;
 import com.snor.quotaguard.quota.dto.response.QuotaResponse;
@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,7 @@ public class QuotaService {
     private final CurrentUserProvider currentUserProvider;
     private final QuotaGuardProperties properties;
     private final PenaltyService penaltyService;
-    private final AuditEventService auditEventService;
+    private final AuditPublisher auditPublisher;
     private final Clock clock;
 
     @Transactional
@@ -52,6 +51,13 @@ public class QuotaService {
         LocalDate today = LocalDate.now(clock);
         if (!today.equals(quota.getLastResetDate())) {
             resetQuota(quota, today);
+            auditPublisher.publishForCurrentUser(
+                    AuditAction.QUOTA_RESET,
+                    "QUOTA",
+                    quota.getId(),
+                    "Quota reset for new day",
+                    true
+            );
         }
     }
 
@@ -63,11 +69,12 @@ public class QuotaService {
         userQuotaRepository.saveAll(quotas);
         int expiredPenalties = penaltyService.expireFinishedPenalties();
         QuotaResetResponse response = new QuotaResetResponse(quotas.size(), today, expiredPenalties);
-        auditEventService.record(
-                AuditAction.RESET,
+        auditPublisher.publishForCurrentUser(
+                AuditAction.QUOTA_RESET,
                 "QUOTA",
                 null,
-                Map.of("resetCount", String.valueOf(response.resetCount()), "expiredPenalties", String.valueOf(response.expiredPenalties()))
+                "Quotas reset: " + response.resetCount() + " quotas, " + response.expiredPenalties() + " penalties expired",
+                true
         );
         return response;
     }

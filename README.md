@@ -212,6 +212,15 @@ Base path:
 | GET | `/sessions/active` | Get the current active session |
 | GET | `/sessions/history` | Get session history |
 
+### Audit
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/audit` | List audit events, admin only, paginated and sortable |
+| GET | `/audit/{eventId}` | Get a single audit event, admin only |
+
+The audit trail records important business actions (user lifecycle, authentication, quota resets, penalties, sessions). Audit persistence is isolated from business logic: a failing audit write never fails the business operation, and successful actions are recorded only after the operation commits.
+
 ## Running Locally
 
 Start PostgreSQL:

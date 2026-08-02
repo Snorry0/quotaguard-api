@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-add-version-columns.sql
   - include:
       file: db/changelog/changes/004-create-audit-events.sql
+  - include:
+      file: db/changelog/changes/006-rework-audit-events.sql
