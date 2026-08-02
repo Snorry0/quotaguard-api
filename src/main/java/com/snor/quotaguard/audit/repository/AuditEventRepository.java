@@ -1,6 +1,6 @@
 package com.snor.quotaguard.audit.repository;
 
-import com.snor.quotaguard.domain.AuditEvent;
+import com.snor.quotaguard.audit.domain.AuditEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

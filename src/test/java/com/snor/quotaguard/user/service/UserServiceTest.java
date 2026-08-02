@@ -1,6 +1,6 @@
 package com.snor.quotaguard.user.service;
 
-import com.snor.quotaguard.audit.service.AuditEventService;
+import com.snor.quotaguard.audit.AuditPublisher;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
@@ -44,7 +44,7 @@ class UserServiceTest {
     private final UserMapper userMapper = mock(UserMapper.class);
     private final CurrentUserProvider currentUserProvider = mock(CurrentUserProvider.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-    private final AuditEventService auditEventService = mock(AuditEventService.class);
+    private final AuditPublisher auditPublisher = mock(AuditPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-08-01T00:00:00Z"), ZoneOffset.UTC);
     private final QuotaGuardProperties properties = new QuotaGuardProperties(
             100,
@@ -60,7 +60,7 @@ class UserServiceTest {
             currentUserProvider,
             passwordEncoder,
             properties,
-            auditEventService,
+            auditPublisher,
             clock
     );
 

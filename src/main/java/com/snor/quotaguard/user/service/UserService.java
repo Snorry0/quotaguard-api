@@ -1,11 +1,11 @@
 package com.snor.quotaguard.user.service;
 
-import com.snor.quotaguard.audit.service.AuditEventService;
+import com.snor.quotaguard.audit.AuditPublisher;
+import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.common.PageRequestFactory;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.UserQuota;
-import com.snor.quotaguard.domain.enums.AuditAction;
 import com.snor.quotaguard.domain.enums.Role;
 import com.snor.quotaguard.exception.EmailAlreadyExistsException;
 import com.snor.quotaguard.exception.ResourceNotFoundException;
@@ -46,7 +46,7 @@ public class UserService {
     private final CurrentUserProvider currentUserProvider;
     private final PasswordEncoder passwordEncoder;
     private final QuotaGuardProperties properties;
-    private final AuditEventService auditEventService;
+    private final AuditPublisher auditPublisher;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -72,11 +72,12 @@ public class UserService {
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
         User savedUser = createUserEntity(request);
-        auditEventService.record(
-                AuditAction.CREATE,
+        auditPublisher.publishForCurrentUser(
+                AuditAction.USER_CREATED,
                 "USER",
-                savedUser.getId().toString(),
-                Map.of("email", savedUser.getEmail(), "role", savedUser.getRole().name())
+                savedUser.getId(),
+                "Admin created user",
+                true
         );
         return userMapper.toResponse(savedUser);
     }
@@ -126,7 +127,15 @@ public class UserService {
         }
         User updatedUser = saveUser(user);
         log.info("User updated id={} role={}", updatedUser.getId(), updatedUser.getRole());
-        auditEventService.record(AuditAction.UPDATE, "USER", userId.toString(), changes);
+        if (!changes.isEmpty()) {
+            auditPublisher.publishForCurrentUser(
+                    AuditAction.USER_UPDATED,
+                    "USER",
+                    userId,
+                    "Admin updated user: " + String.join(", ", changes.keySet()),
+                    true
+            );
+        }
         return userMapper.toResponse(updatedUser);
     }
 
@@ -140,7 +149,13 @@ public class UserService {
         userQuotaRepository.findByUser(user).ifPresent(userQuotaRepository::delete);
         userRepository.delete(user);
         log.info("User deleted id={}", userId);
-        auditEventService.record(AuditAction.DELETE, "USER", userId.toString(), null);
+        auditPublisher.publishForCurrentUser(
+                AuditAction.USER_DELETED,
+                "USER",
+                userId,
+                "Admin deleted user",
+                true
+        );
     }
 
     @Transactional(readOnly = true)

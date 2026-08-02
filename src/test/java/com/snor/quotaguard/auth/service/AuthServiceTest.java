@@ -1,5 +1,6 @@
 package com.snor.quotaguard.auth.service;
 
+import com.snor.quotaguard.audit.AuditPublisher;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.enums.Role;
 import com.snor.quotaguard.auth.dto.request.LoginRequest;
@@ -31,7 +32,10 @@ class AuthServiceTest {
         JwtService jwtService = mock(JwtService.class);
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = mock(UserService.class);
-        AuthService authService = new AuthService(authenticationManager, jwtService, userMapper, userService);
+        AuditPublisher auditPublisher = mock(AuditPublisher.class);
+        AuthService authService = new AuthService(
+                authenticationManager, jwtService, userMapper, userService, auditPublisher
+        );
 
         User created = User.builder()
                 .id(UUID.randomUUID())
@@ -54,7 +58,10 @@ class AuthServiceTest {
         JwtService jwtService = mock(JwtService.class);
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = mock(UserService.class);
-        AuthService authService = new AuthService(authenticationManager, jwtService, userMapper, userService);
+        AuditPublisher auditPublisher = mock(AuditPublisher.class);
+        AuthService authService = new AuthService(
+                authenticationManager, jwtService, userMapper, userService, auditPublisher
+        );
 
         when(userService.findUserByEmail("gone@example.com"))
                 .thenThrow(new ResourceNotFoundException("User not found"));

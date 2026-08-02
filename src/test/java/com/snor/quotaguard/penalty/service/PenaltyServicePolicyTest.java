@@ -1,5 +1,6 @@
 package com.snor.quotaguard.penalty.service;
 
+import com.snor.quotaguard.audit.AuditPublisher;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.enums.PenaltyType;
 import com.snor.quotaguard.penalty.mapper.PenaltyEventMapper;
@@ -19,6 +20,7 @@ class PenaltyServicePolicyTest {
             mock(PenaltyEventRepository.class),
             mock(PenaltyEventMapper.class),
             mock(CurrentUserProvider.class),
+            mock(AuditPublisher.class),
             new QuotaGuardProperties(100, 1, new QuotaGuardProperties.Penalties(Duration.ofMinutes(15), Duration.ofHours(4)), new QuotaGuardProperties.Sessions(1, 1)),
             Clock.systemUTC()
     );

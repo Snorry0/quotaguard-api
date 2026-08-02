@@ -1,0 +1,16 @@
+package com.snor.quotaguard.audit.domain;
+
+public enum AuditAction {
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DELETED,
+    LOGIN_SUCCESS,
+    LOGIN_FAILED,
+    REGISTER_SUCCESS,
+    REGISTER_FAILED,
+    QUOTA_RESET,
+    PENALTY_APPLIED,
+    PENALTY_EXPIRED,
+    SESSION_STARTED,
+    SESSION_COMPLETED
+}

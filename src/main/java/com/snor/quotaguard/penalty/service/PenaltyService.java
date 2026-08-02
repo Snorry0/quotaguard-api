@@ -1,5 +1,7 @@
 package com.snor.quotaguard.penalty.service;
 
+import com.snor.quotaguard.audit.AuditPublisher;
+import com.snor.quotaguard.audit.domain.AuditAction;
 import com.snor.quotaguard.config.QuotaGuardProperties;
 import com.snor.quotaguard.domain.PenaltyEvent;
 import com.snor.quotaguard.domain.User;
@@ -26,6 +28,7 @@ public class PenaltyService {
     private final PenaltyEventRepository penaltyEventRepository;
     private final PenaltyEventMapper penaltyEventMapper;
     private final CurrentUserProvider currentUserProvider;
+    private final AuditPublisher auditPublisher;
     private final QuotaGuardProperties properties;
     private final Clock clock;
 
@@ -39,13 +42,24 @@ public class PenaltyService {
         LocalDateTime endTime = resolveEndTime(now, type);
         boolean active = type != PenaltyType.WARNING;
 
-        return penaltyEventRepository.save(PenaltyEvent.builder()
+        PenaltyEvent penalty = penaltyEventRepository.save(PenaltyEvent.builder()
                 .user(user)
                 .type(type)
                 .startTime(now)
                 .endTime(endTime)
                 .active(active)
                 .build());
+
+        auditPublisher.publishWithActor(
+                AuditAction.PENALTY_APPLIED,
+                "PENALTY",
+                penalty.getId(),
+                "Penalty applied: " + type,
+                true,
+                user.getId(),
+                user.getEmail()
+        );
+        return penalty;
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +90,18 @@ public class PenaltyService {
     @Transactional
     public int expireFinishedPenalties() {
         List<PenaltyEvent> expired = penaltyEventRepository.findByActiveTrueAndEndTimeBefore(LocalDateTime.now(clock));
-        expired.forEach(PenaltyEvent::expire);
+        expired.forEach(event -> {
+            event.expire();
+            auditPublisher.publishWithActor(
+                    AuditAction.PENALTY_EXPIRED,
+                    "PENALTY",
+                    event.getId(),
+                    "Penalty expired",
+                    true,
+                    null,
+                    null
+            );
+        });
         penaltyEventRepository.saveAll(expired);
         return expired.size();
     }
