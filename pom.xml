@@ -13,7 +13,7 @@
 
     <groupId>com.snor</groupId>
     <artifactId>quotaguard</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.3.0</version>
     <name>QuotaGuard API</name>
     <description>Domain-agnostic quota, usage, penalty, and analytics backend.</description>
 
