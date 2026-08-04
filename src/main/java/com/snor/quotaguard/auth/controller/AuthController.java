@@ -1,6 +1,8 @@
 package com.snor.quotaguard.auth.controller;
 
 import com.snor.quotaguard.auth.dto.request.LoginRequest;
+import com.snor.quotaguard.auth.dto.request.LogoutRequest;
+import com.snor.quotaguard.auth.dto.request.RefreshRequest;
 import com.snor.quotaguard.auth.dto.request.RegisterRequest;
 import com.snor.quotaguard.auth.dto.response.AuthResponse;
 import com.snor.quotaguard.auth.service.AuthService;
@@ -40,7 +42,8 @@ public class AuthController {
                 "email": "demo@example.com",
                 "role": "USER",
                 "createdAt": "2026-08-02T08:30:00"
-              }
+              },
+              "refresh_token": "dGhpcy1pcy1hLXNhbXBsZS1yZWZyZXNoLXRva2VuLXZhbHVl"
             }
             """;
 
@@ -82,10 +85,13 @@ public class AuthController {
     @Operation(
             summary = "Authenticate and obtain a JWT",
             description = """
-                    Authenticates with email and password and returns a bearer token valid for
-                    12 hours by default (configurable via `JWT_EXPIRATION_HOURS`). Token claims:
-                    `sub` = user id, `role`. Tokens are bound to the user id, so changing the
-                    email does not invalidate active tokens.
+                    Authenticates with email and password and returns a JWT access token + a refresh token.
+                    The access token is short-lived (~15 minutes by default; configurable via
+                    `JWT_EXPIRATION_MINUTES`); the refresh token is long-lived (~30 days by default;
+                    configurable via `JWT_REFRESH_EXPIRATION_DAYS`). Use the access token in the
+                    `Authorization: Bearer <token>` header; use the refresh token at
+                    `POST /api/v1/auth/refresh` to obtain a new pair. Token claims: `sub` = user id, `role`.
+                    Tokens are bound to the user id, so changing the email does not invalidate them.
                     """,
             operationId = "login"
     )
@@ -110,5 +116,67 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @Operation(
+            summary = "Refresh the access token",
+            description = """
+                    Exchanges a valid refresh token for a new access token + a new refresh token (rotation).
+                    The presented refresh token is revoked on the same transaction; the new refresh token
+                    belongs to the same token family. A replayed (already-revoked) refresh token revokes
+                    the whole token family and returns 401.
+                    """,
+            operationId = "refresh"
+    )
+    @SecurityRequirements()
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Refresh token to exchange.",
+            required = true,
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = RefreshRequest.class),
+                    examples = @ExampleObject(name = "refreshRequest", summary = "Valid refresh",
+                            value = "{\"refreshToken\":\"dGhpcy1pcy1hLXNhbXBsZS1yZWZyZXNoLXRva2VuLXZhbHVl\"}"))
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Refresh succeeded. Returns a new access token + a new refresh token.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = AuthResponse.class),
+                            examples = @ExampleObject(name = "refreshedSession", summary = "New session after refresh",
+                                    value = AUTH_RESPONSE_EXAMPLE))),
+            @ApiResponse(responseCode = "400", ref = "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = "Unauthorized")
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.refreshToken()));
+    }
+
+    @Operation(
+            summary = "Logout (revoke the presented refresh token)",
+            description = """
+                    Revokes the presented refresh token. Idempotent — revoking an already-revoked or
+                    unknown token still returns 204. Does NOT affect the access token (which expires at
+                    `expires_at`). To log out everywhere, delete the user's tokens via an admin endpoint
+                    (out of scope here).
+                    """,
+            operationId = "logout"
+    )
+    @SecurityRequirements()
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Refresh token to revoke.",
+            required = true,
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = LogoutRequest.class),
+                    examples = @ExampleObject(name = "logoutRequest", summary = "Valid logout",
+                            value = "{\"refreshToken\":\"dGhpcy1pcy1hLXNhbXBsZS1yZWZyZXNoLXRva2VuLXZhbHVl\"}"))
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Refresh token revoked (or was already invalid)."),
+            @ApiResponse(responseCode = "400", ref = "BadRequest")
+    })
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request) {
+        authService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 }

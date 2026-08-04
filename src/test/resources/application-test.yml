@@ -12,7 +12,8 @@ spring:
 security:
   jwt:
     secret: test-secret-test-secret-test-secret-test
-    expiration: PT1H
+    expiration: PT1M
+    refresh-expiration: PT1H
 
 quotaguard:
   default-daily-limit: 100

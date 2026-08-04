@@ -55,7 +55,8 @@ quotaguard:
 security:
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-change-before-production-dev-only-secret}
-    expiration: "${JWT_EXPIRATION_HOURS:12}h"
+    expiration: "${JWT_EXPIRATION_MINUTES:15}m"
+    refresh-expiration: "${JWT_REFRESH_EXPIRATION_DAYS:30}d"
 
 springdoc:
   # Keep broken reference definitions in the served spec. springdoc's default

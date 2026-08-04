@@ -69,8 +69,11 @@ public class OpenApiConfig {
             ## Authentication
 
             Most endpoints require a JWT bearer token. Obtain one by calling `POST /api/v1/auth/login`
-            with your credentials; the response contains an `access_token` valid for 12 hours by default
-            (configurable via the `JWT_EXPIRATION_HOURS` environment variable).
+            with your credentials; the response contains a short-lived JWT `access_token`
+            (~15 minutes by default, configurable via `JWT_EXPIRATION_MINUTES`) and a long-lived
+            opaque `refresh_token` (~30 days by default, configurable via `JWT_REFRESH_EXPIRATION_DAYS`).
+            Use the refresh token at `POST /api/v1/auth/refresh` to obtain a new pair (the old
+            refresh token is revoked — rotation); revoke it at `POST /api/v1/auth/logout`.
 
             Include it on every request as:
 
@@ -167,6 +170,18 @@ public class OpenApiConfig {
               "error": "Unauthorized",
               "message": "Invalid email or password",
               "path": "/api/v1/auth/login",
+              "validationErrors": null,
+              "errors": null
+            }
+            """;
+
+    private static final String EX_INVALID_REFRESH_TOKEN = """
+            {
+              "timestamp": "2026-08-03T10:15:30Z",
+              "status": 401,
+              "error": "Unauthorized",
+              "message": "Invalid or expired refresh token",
+              "path": "/api/v1/auth/refresh",
               "validationErrors": null,
               "errors": null
             }
@@ -433,7 +448,8 @@ public class OpenApiConfig {
                 .content(new Content().addMediaType("application/json", new MediaType()
                         .schema(new Schema<>().$ref(ERROR_SCHEMA_REF))
                         .addExamples("missingToken", new Example().value(EX_MISSING_TOKEN))
-                        .addExamples("invalidCredentials", new Example().value(EX_INVALID_CREDENTIALS))));
+                        .addExamples("invalidCredentials", new Example().value(EX_INVALID_CREDENTIALS))
+                        .addExamples("invalidRefreshToken", new Example().value(EX_INVALID_REFRESH_TOKEN))));
     }
 
     private ApiResponse forbidden() {

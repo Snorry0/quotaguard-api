@@ -1,5 +1,6 @@
 package com.snor.quotaguard.auth.service;
 
+import com.snor.quotaguard.auth.domain.RefreshToken;
 import com.snor.quotaguard.domain.User;
 import com.snor.quotaguard.domain.enums.Role;
 import com.snor.quotaguard.auth.dto.request.LoginRequest;
@@ -41,10 +42,17 @@ class AuthServiceTest {
             JwtService jwtService,
             UserMapper userMapper,
             UserService userService,
-            DomainEventPublisher domainEventPublisher
+            DomainEventPublisher domainEventPublisher,
+            RefreshTokenService refreshTokenService
     ) {
         return new AuthService(
-                authenticationManager, jwtService, userMapper, userService, domainEventPublisher, clock
+                authenticationManager,
+                jwtService,
+                userMapper,
+                userService,
+                domainEventPublisher,
+                clock,
+                refreshTokenService
         );
     }
 
@@ -55,8 +63,18 @@ class AuthServiceTest {
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = mock(UserService.class);
         DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         AuthService authService = newAuthService(
-                authenticationManager, jwtService, userMapper, userService, domainEventPublisher
+                authenticationManager,
+                jwtService,
+                userMapper,
+                userService,
+                domainEventPublisher,
+                refreshTokenService
+        );
+
+        when(refreshTokenService.issue(any())).thenReturn(
+                new RefreshTokenService.IssuedRefreshToken(mock(RefreshToken.class), "raw-token")
         );
 
         User created = User.builder()
@@ -86,8 +104,18 @@ class AuthServiceTest {
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = mock(UserService.class);
         DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         AuthService authService = newAuthService(
-                authenticationManager, jwtService, userMapper, userService, domainEventPublisher
+                authenticationManager,
+                jwtService,
+                userMapper,
+                userService,
+                domainEventPublisher,
+                refreshTokenService
+        );
+
+        when(refreshTokenService.issue(any())).thenReturn(
+                new RefreshTokenService.IssuedRefreshToken(mock(RefreshToken.class), "raw-token")
         );
 
         User user = User.builder()
@@ -113,8 +141,14 @@ class AuthServiceTest {
         UserMapper userMapper = mock(UserMapper.class);
         UserService userService = mock(UserService.class);
         DomainEventPublisher domainEventPublisher = mock(DomainEventPublisher.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
         AuthService authService = newAuthService(
-                authenticationManager, jwtService, userMapper, userService, domainEventPublisher
+                authenticationManager,
+                jwtService,
+                userMapper,
+                userService,
+                domainEventPublisher,
+                refreshTokenService
         );
 
         when(userService.findUserByEmail("gone@example.com"))

@@ -16,6 +16,7 @@ import com.snor.quotaguard.exception.ResourceNotFoundException;
 import com.snor.quotaguard.security.JwtService;
 import com.snor.quotaguard.user.EmailNormalizer;
 import com.snor.quotaguard.user.dto.request.CreateUserRequest;
+import com.snor.quotaguard.user.dto.response.UserResponse;
 import com.snor.quotaguard.user.mapper.UserMapper;
 import com.snor.quotaguard.user.service.UserService;
 import io.micrometer.core.annotation.Timed;
@@ -41,6 +42,7 @@ public class AuthService {
     private final UserService userService;
     private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
+    private final RefreshTokenService refreshTokenService;
 
     @Timed(value = "quotaguard.timer.registration", percentiles = {0.5, 0.95, 0.99})
     @Transactional
@@ -55,10 +57,13 @@ public class AuthService {
                     user.getId(),
                     user.getEmail()
             ));
+            String accessToken = jwtService.generateToken(user);
+            String refreshToken = refreshTokenService.issue(user).rawToken();
             return new AuthResponse(
-                    jwtService.generateToken(user),
+                    accessToken,
                     jwtService.getExpirationInstant(),
-                    userMapper.toResponse(user)
+                    userMapper.toResponse(user),
+                    refreshToken
             );
         } catch (EmailAlreadyExistsException | DataIntegrityViolationException ex) {
             domainEventPublisher.publish(new RegisterFailedEvent(
@@ -70,7 +75,7 @@ public class AuthService {
     }
 
     @Timed(value = "quotaguard.timer.login", percentiles = {0.5, 0.95, 0.99})
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String normalizedEmail = EmailNormalizer.normalize(request.email());
         try {
@@ -89,8 +94,14 @@ public class AuthService {
                     user.getId(),
                     user.getEmail()
             ));
-            String token = jwtService.generateToken(user);
-            return new AuthResponse(token, jwtService.getExpirationInstant(), userMapper.toResponse(user));
+            String accessToken = jwtService.generateToken(user);
+            String refreshToken = refreshTokenService.issue(user).rawToken();
+            return new AuthResponse(
+                    accessToken,
+                    jwtService.getExpirationInstant(),
+                    userMapper.toResponse(user),
+                    refreshToken
+            );
         } catch (AuthenticationException ex) {
             domainEventPublisher.publish(new LoginFailedEvent(
                     Instant.now(clock),
@@ -98,5 +109,17 @@ public class AuthService {
             ));
             throw ex;
         }
+    }
+
+    @Timed(value = "quotaguard.timer.refresh", percentiles = {0.5, 0.95, 0.99})
+    public AuthResponse refresh(String presentedRefreshToken) {
+        RefreshTokenService.RefreshedSession session = refreshTokenService.rotate(presentedRefreshToken);
+        User user = session.user();
+        UserResponse userResponse = userMapper.toResponse(user);
+        return new AuthResponse(session.accessToken(), session.expiresAt(), userResponse, session.newRefreshToken());
+    }
+
+    public void logout(String presentedRefreshToken) {
+        refreshTokenService.revoke(presentedRefreshToken);
     }
 }

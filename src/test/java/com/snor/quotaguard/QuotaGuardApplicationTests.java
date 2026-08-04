@@ -29,7 +29,8 @@ class QuotaGuardApplicationTests {
 
     @Test
     void jwtExpirationBindsFromConfiguration() {
-        assertThat(jwtProperties.expiration()).isEqualTo(Duration.ofHours(1));
+        assertThat(jwtProperties.expiration()).isEqualTo(Duration.ofMinutes(1));
+        assertThat(jwtProperties.refreshExpiration()).isEqualTo(Duration.ofHours(1));
     }
 
     @Test
