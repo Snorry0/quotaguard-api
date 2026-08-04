@@ -84,6 +84,10 @@ public class OpenApiConfig {
             Token claims: `sub` = user id, `role` = user role (`USER` or `ADMIN`). Tokens are bound to
             the user id rather than the email, so changing your email does not invalidate active tokens.
 
+            `POST /api/v1/auth/login`, `/register`, and `/refresh` are rate limited per IP (and per user
+            when authenticated). Exceeding the limit returns `429 Too Many Requests` with a `Retry-After`
+            header. Limits are configurable under `quotaguard.rate-limiting.endpoints`.
+
             ## Interactive documentation
 
             Full interactive documentation is available at [the Swagger UI](/swagger-ui.html).
@@ -305,6 +309,20 @@ public class OpenApiConfig {
             }
             """;
 
+    private static final String EX_RATE_LIMIT_EXCEEDED = """
+            {
+              "timestamp": "2026-08-03T10:15:30Z",
+              "status": 429,
+              "error": "Too Many Requests",
+              "message": "Too many requests. Retry after 60s.",
+              "path": "/api/v1/auth/login",
+              "validationErrors": {
+                "retryAfterSeconds": "60"
+              },
+              "errors": null
+            }
+            """;
+
     private static final String EX_UNEXPECTED = """
             {
               "timestamp": "2026-08-02T10:19:15.000000Z",
@@ -482,12 +500,13 @@ public class OpenApiConfig {
 
     private ApiResponse tooManyRequests() {
         return new ApiResponse()
-                .description("Quota exceeded or penalty active. May include a `Retry-After` header "
-                        + "(seconds) when a penalty is active.")
+                .description("Quota exceeded, penalty active, or rate limit exceeded. May include a `Retry-After` "
+                        + "header (seconds) when a penalty or rate limit is active.")
                 .content(new Content().addMediaType("application/json", new MediaType()
                         .schema(new Schema<>().$ref(ERROR_SCHEMA_REF))
                         .addExamples("quotaExceeded", new Example().value(EX_QUOTA_EXCEEDED))
-                        .addExamples("penaltyActive", new Example().value(EX_PENALTY_ACTIVE))));
+                        .addExamples("penaltyActive", new Example().value(EX_PENALTY_ACTIVE))
+                        .addExamples("rateLimitExceeded", new Example().value(EX_RATE_LIMIT_EXCEEDED))));
     }
 
     private ApiResponse internalServerError() {

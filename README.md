@@ -282,6 +282,63 @@ Scraped metric names follow the Prometheus convention: dots become underscores, 
 
 For the full metric reference, custom health indicator, and production security recommendations, see `docs/09-observability.md`.
 
+## Rate limiting
+
+The sensitive authentication endpoints are protected by token-bucket rate limiting (Bucket4j) to mitigate credential stuffing, registration spam and refresh-token abuse.
+
+### Protected endpoints and limits
+
+| Endpoint | Limit |
+|---|---|
+| `POST /api/v1/auth/login` | 5 attempts per minute |
+| `POST /api/v1/auth/register` | 20 attempts per hour |
+| `POST /api/v1/auth/refresh` | 10 attempts per minute |
+
+### Strategy
+
+Anonymous requests are keyed by the client IP; requests with a valid bearer token are keyed by the authenticated user id. The three auth endpoints are public (anonymous), so they are keyed per IP; authenticated requests to any rate-limited path get a per-user bucket.
+
+### The 429 response
+
+When a bucket is exhausted the request is rejected with `429 Too Many Requests`, a `Retry-After` header (seconds until the bucket refills) and the standard structured error body with a `retryAfterSeconds` detail:
+
+```json
+{
+  "timestamp": "2026-08-03T10:15:30Z",
+  "status": 429,
+  "error": "Too Many Requests",
+  "message": "Too many requests. Retry after 60s.",
+  "path": "/api/v1/auth/login",
+  "validationErrors": {
+    "retryAfterSeconds": "60"
+  },
+  "errors": null
+}
+```
+
+### Every attempt consumes a token
+
+The rate limiter runs before the controller, so EVERY request to a protected endpoint consumes a token regardless of the response status — failed logins and failed registrations burn tokens. This is intentional auth-protection semantics.
+
+### Configuration
+
+Limits are configurable in `application.yml` under `quotaguard.rate-limiting.endpoints` (per-endpoint `tokens` + `refill-period`; the bracket-notation keys preserve the exact request path):
+
+```yaml
+quotaguard:
+  rate-limiting:
+    endpoints:
+      "[/api/v1/auth/login]":
+        tokens: 5
+        refill-period: 1m
+```
+
+Protecting a future endpoint is a plain configuration change — add a block under `endpoints`, no code change.
+
+### Observability
+
+Rejections are counted by the `quotaguard.rate_limit.rejections` counter, part of the business metrics reference in `docs/09-observability.md`.
+
 ## API Endpoints
 
 Base path:

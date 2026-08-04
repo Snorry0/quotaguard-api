@@ -25,6 +25,21 @@ quotaguard:
   sessions:
     units-per-minute: 1
     minimum-charge: 1
+  rate-limiting:
+    # Generous per-IP capacities: the shared test contexts (default IP 127.0.0.1) run
+    # multiple auth-heavy integration tests in one minute, so low limits would 429 them.
+    # RateLimitIntegrationTest overrides these to the tight spec values (3/100/5) via
+    # @TestPropertySource on its own dedicated context.
+    endpoints:
+      "[/api/v1/auth/login]":
+        tokens: 100
+        refill-period: 1m
+      "[/api/v1/auth/register]":
+        tokens: 1000
+        refill-period: 1h
+      "[/api/v1/auth/refresh]":
+        tokens: 100
+        refill-period: 1m
   validation:
     quota:
       min: 1

@@ -75,7 +75,8 @@ public class AuthController {
                             examples = @ExampleObject(name = "registeredUser",
                                     summary = "Successful registration", value = AUTH_RESPONSE_EXAMPLE))),
             @ApiResponse(responseCode = "400", ref = "BadRequest"),
-            @ApiResponse(responseCode = "409", ref = "Conflict")
+            @ApiResponse(responseCode = "409", ref = "Conflict"),
+            @ApiResponse(responseCode = "429", ref = "TooManyRequests")
     })
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -111,7 +112,8 @@ public class AuthController {
                             examples = @ExampleObject(name = "authenticatedUser",
                                     summary = "Successful login", value = AUTH_RESPONSE_EXAMPLE))),
             @ApiResponse(responseCode = "400", ref = "BadRequest"),
-            @ApiResponse(responseCode = "401", ref = "Unauthorized")
+            @ApiResponse(responseCode = "401", ref = "Unauthorized"),
+            @ApiResponse(responseCode = "429", ref = "TooManyRequests")
     })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -144,7 +146,8 @@ public class AuthController {
                             examples = @ExampleObject(name = "refreshedSession", summary = "New session after refresh",
                                     value = AUTH_RESPONSE_EXAMPLE))),
             @ApiResponse(responseCode = "400", ref = "BadRequest"),
-            @ApiResponse(responseCode = "401", ref = "Unauthorized")
+            @ApiResponse(responseCode = "401", ref = "Unauthorized"),
+            @ApiResponse(responseCode = "429", ref = "TooManyRequests")
     })
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
