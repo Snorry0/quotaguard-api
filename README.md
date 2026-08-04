@@ -158,7 +158,7 @@ This makes the system extensible for multiple domains, including rate limiting, 
 
 ## Authentication
 
-### Obtaining a token
+### Obtaining tokens
 
 `POST /api/v1/auth/login` with the body:
 
@@ -169,14 +169,15 @@ This makes the system extensible for multiple domains, including rate limiting, 
 }
 ```
 
-Returns `200` with:
+Returns `200` with a short-lived `access_token` (JWT) and a long-lived `refresh_token` (opaque token):
 
 ```json
 {
   "access_token": "...",
   "token_type": "Bearer",
   "expires_at": "...",
-  "user": { ... }
+  "user": { ... },
+  "refresh_token": "..."
 }
 ```
 
@@ -188,11 +189,33 @@ Subsequent requests include the header on every authenticated request:
 Authorization: Bearer <access_token>
 ```
 
-### Expiration and claims
+### Token lifetimes
 
-Tokens expire after 12 hours by default (configurable via the `JWT_EXPIRATION_HOURS` environment variable / `security.jwt.expiration` property).
+Access tokens are short-lived: ~15 minutes by default (configurable via the `JWT_EXPIRATION_MINUTES` environment variable / `security.jwt.expiration` property).
+
+Refresh tokens are long-lived: ~30 days by default (configurable via the `JWT_REFRESH_EXPIRATION_DAYS` environment variable / `security.jwt.refresh-expiration` property).
 
 The JWT contains `sub` (user identifier) and `role` (`USER` or `ADMIN`). Tokens are bound to the user identifier, NOT the email — changing a user's email does NOT invalidate their active tokens.
+
+### Refresh
+
+When the access token is close to expiry or already expired, obtain a new pair at `POST /api/v1/auth/refresh` with the body:
+
+```json
+{
+  "refreshToken": "..."
+}
+```
+
+Returns `200` with a NEW `access_token` and a NEW `refresh_token` (rotation). The old refresh token becomes unusable. A replayed (already-used) refresh token revokes the whole token family (all devices in that lineage) and returns `401`.
+
+### Logout
+
+`POST /api/v1/auth/logout` with the body `{"refreshToken": "..."}` revokes the presented refresh token. It is idempotent — `204` is returned even for an unknown or already-revoked token. The access token is NOT invalidated by logout; it remains valid until it expires at `expires_at`.
+
+### Multiple devices
+
+Each device's login issues an independent refresh token family. Logging out or rotating on one device does not affect another device.
 
 ### Swagger UI authentication
 
@@ -200,7 +223,7 @@ In the Swagger UI, click the "Authorize" button (top right) and paste the access
 
 ### Public vs authenticated
 
-`POST /api/v1/auth/register` and `POST /api/v1/auth/login` are public; all other endpoints require a valid token. Admin endpoints (`/api/v1/users` admin operations, `/api/v1/quota/reset`, `/api/v1/audit/**`) additionally require the `ADMIN` role — see the "Security" note in each endpoint's Swagger description.
+`POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh` and `POST /api/v1/auth/logout` are public; all other endpoints require a valid token. Admin endpoints (`/api/v1/users` admin operations, `/api/v1/quota/reset`, `/api/v1/audit/**`) additionally require the `ADMIN` role — see the "Security" note in each endpoint's Swagger description.
 
 ## Observability
 
@@ -274,7 +297,9 @@ These tables are a quick-reference summary. For the full contract (every request
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/auth/register` | Register a new user |
-| POST | `/auth/login` | Authenticate and receive JWT |
+| POST | `/auth/login` | Authenticate and receive a short-lived access token + a refresh token |
+| POST | `/auth/refresh` | Refresh the access token; rotates the refresh token (the old one becomes unusable) |
+| POST | `/auth/logout` | Revoke the presented refresh token (idempotent) |
 
 ### Users
 
@@ -510,7 +535,8 @@ DB_NAME
 DB_USERNAME
 DB_PASSWORD
 JWT_SECRET
-JWT_EXPIRATION_HOURS
+JWT_EXPIRATION_MINUTES
+JWT_REFRESH_EXPIRATION_DAYS
 DEFAULT_DAILY_LIMIT
 PENALTY_DECAY_PER_RESET
 SHORT_COOLDOWN

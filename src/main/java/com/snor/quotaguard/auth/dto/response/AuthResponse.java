@@ -11,9 +11,10 @@ import java.time.Instant;
  */
 @Schema(
         description = """
-                Result of a successful authentication (register or login): a JWT access token, its
-                bearer token type, the expiry instant and the authenticated user's profile. The JSON
-                property names are snake_case (`access_token`, `token_type`, `expires_at`).
+                Result of a successful authentication (register, login or refresh): a JWT access token,
+                its bearer token type, the expiry instant, the authenticated user's profile and a
+                long-lived refresh token. The JSON property names are snake_case (`access_token`,
+                `token_type`, `expires_at`, `refresh_token`).
                 """
 )
 public record AuthResponse(
@@ -38,9 +39,19 @@ public record AuthResponse(
         @Schema(
                 description = "The authenticated user's profile."
         )
-        UserResponse user
+        UserResponse user,
+        @JsonProperty("refresh_token")
+        @Schema(
+                description = "Opaque refresh token (Base64 URL-safe). Use it at `POST /api/v1/auth/refresh` to obtain a new access + refresh pair, or at `POST /api/v1/auth/logout` to revoke.",
+                example = "dGhpcy1pcy1hLXNhbXBsZS1yZWZyZXNoLXRva2VuLXZhbHVl"
+        )
+        String refreshToken
 ) {
     public AuthResponse(String accessToken, Instant expiresAt, UserResponse user) {
-        this(accessToken, "Bearer", expiresAt, user);
+        this(accessToken, "Bearer", expiresAt, user, null);
+    }
+
+    public AuthResponse(String accessToken, Instant expiresAt, UserResponse user, String refreshToken) {
+        this(accessToken, "Bearer", expiresAt, user, refreshToken);
     }
 }

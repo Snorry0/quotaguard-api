@@ -7,14 +7,18 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "security.jwt")
 public record JwtProperties(
         String secret,
-        Duration expiration
+        Duration expiration,
+        Duration refreshExpiration
 ) {
     public JwtProperties {
         if (secret == null || secret.length() < 32) {
             throw new IllegalArgumentException("security.jwt.secret must be at least 32 characters long");
         }
         if (expiration == null) {
-            expiration = Duration.ofHours(12);
+            expiration = Duration.ofMinutes(15);
+        }
+        if (refreshExpiration == null) {
+            refreshExpiration = Duration.ofDays(30);
         }
     }
 }

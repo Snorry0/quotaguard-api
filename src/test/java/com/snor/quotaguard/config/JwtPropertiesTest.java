@@ -11,14 +11,15 @@ class JwtPropertiesTest {
 
     @Test
     void rejectsSecretsShorterThanThirtyTwoCharacters() {
-        assertThatThrownBy(() -> new JwtProperties("too-short", Duration.ofHours(1)))
+        assertThatThrownBy(() -> new JwtProperties("too-short", Duration.ofHours(1), Duration.ofDays(30)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void defaultsExpirationToTwelveHoursWhenAbsent() {
-        JwtProperties properties = new JwtProperties("a-secret-that-is-longer-than-thirty-two-chars", null);
+    void defaultsExpirationAndRefreshExpirationWhenAbsent() {
+        JwtProperties properties = new JwtProperties("a-secret-that-is-longer-than-thirty-two-chars", null, null);
 
-        assertThat(properties.expiration()).isEqualTo(Duration.ofHours(12));
+        assertThat(properties.expiration()).isEqualTo(Duration.ofMinutes(15));
+        assertThat(properties.refreshExpiration()).isEqualTo(Duration.ofDays(30));
     }
 }

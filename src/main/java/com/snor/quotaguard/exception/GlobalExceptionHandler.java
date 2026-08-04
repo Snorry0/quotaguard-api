@@ -1,5 +1,6 @@
 package com.snor.quotaguard.exception;
 
+import com.snor.quotaguard.auth.exception.InvalidRefreshTokenException;
 import com.snor.quotaguard.dto.response.ErrorResponse;
 import com.snor.quotaguard.dto.response.FieldErrorDetail;
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,6 +124,15 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password", request, null);
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    ResponseEntity<ErrorResponse> handleInvalidRefreshTokenException(
+            InvalidRefreshTokenException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Refresh token validation failed: {}", ex.getMessage());
+        return build(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token", request, null);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
