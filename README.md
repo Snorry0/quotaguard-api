@@ -339,6 +339,39 @@ Protecting a future endpoint is a plain configuration change — add a block und
 
 Rejections are counted by the `quotaguard.rate_limit.rejections` counter, part of the business metrics reference in `docs/09-observability.md`.
 
+## Caching
+
+The service layer caches hot database reads with Caffeine behind the Spring Cache abstraction. Cache annotations live on the service layer only — never in controllers, entities or repositories (see `docs/decisions/ADR-012-caching.md`).
+
+| Cache | What is cached | TTL | Max entries |
+|---|---|---|---|
+| `users` | `User` lookups by normalized email — the login path (the `UserDetailsService` load + the login service, which previously hit the DB twice per login) — plus admin user reads by id | 5 minutes | 1,000 |
+| `adminQueries` | Paged admin user-list queries (`GET /users`, keyed by page + size) | 30 seconds | 50 |
+
+The `users` cache stores the `User` **entity** — safe because the entity is all-scalar (five fields, no associations, no lazy-loading pitfalls). The `adminQueries` cache stores the mapped `Page<UserResponse>`. The per-request current-user read (`GET /users/me`) is deliberately NOT cached; it stays a direct primary-key lookup (see ADR-012).
+
+Configuration lives in `application.yml` under `quotaguard.cache.caches`:
+
+```yaml
+quotaguard:
+  cache:
+    caches:
+      users:
+        ttl: 5m
+        max-size: 1000
+      adminQueries:
+        ttl: 30s
+        max-size: 50
+```
+
+### Consistency
+
+Every write path — `POST/PATCH/DELETE /api/v1/users` and registration — evicts both caches BEFORE the transaction commits (`@CacheEvict(allEntries = true, beforeInvocation = true)`), so a subsequent read is always fresh, even after a failed write. Admin list queries are eventually consistent within the 30-second TTL.
+
+Caches are per-instance in-memory (Caffeine); multi-instance deployments need a shared cache (see ADR-012 Future Notes) — the same caveat as the rate-limit buckets.
+
+The cache hit ratio is exposed through Micrometer (see `docs/09-observability.md`); the design tradeoffs are recorded in `docs/decisions/ADR-012-caching.md`.
+
 ## API Endpoints
 
 Base path:

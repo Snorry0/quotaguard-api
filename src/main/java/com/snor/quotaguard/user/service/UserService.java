@@ -23,6 +23,8 @@ import com.snor.quotaguard.user.mapper.UserMapper;
 import com.snor.quotaguard.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -59,6 +61,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "adminQueries", key = "#page + '-' + #size")
     public Page<UserResponse> getUsers(int page, int size) {
         Pageable pageable = PageRequestFactory.of(
                 page,
@@ -69,11 +72,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "users", key = "#userId")
     public UserResponse getUser(UUID userId) {
         return userMapper.toResponse(findUser(userId));
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"users", "adminQueries"}, allEntries = true, beforeInvocation = true)
     public UserResponse createUser(CreateUserRequest request) {
         User savedUser = createUserEntity(request);
         domainEventPublisher.publish(new UserCreatedEvent(
@@ -87,6 +92,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"users", "adminQueries"}, allEntries = true, beforeInvocation = true)
     public User createUserEntity(CreateUserRequest request) {
         String normalizedEmail = EmailNormalizer.normalize(request.email());
         ensureEmailAvailable(normalizedEmail);
@@ -110,6 +116,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"users", "adminQueries"}, allEntries = true, beforeInvocation = true)
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = findUser(userId);
         Map<String, String> changes = new LinkedHashMap<>();
@@ -143,6 +150,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"users", "adminQueries"}, allEntries = true, beforeInvocation = true)
     public void deleteUser(UUID userId) {
         User currentUser = currentUserProvider.getCurrentUser();
         if (currentUser.getId().equals(userId)) {
@@ -160,6 +168,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "users", key = "T(com.snor.quotaguard.user.EmailNormalizer).normalize(#email)", sync = true)
     public User findUserByEmail(String email) {
         return userRepository.findByEmail(EmailNormalizer.normalize(email))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

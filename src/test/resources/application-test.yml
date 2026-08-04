@@ -40,6 +40,14 @@ quotaguard:
       "[/api/v1/auth/refresh]":
         tokens: 100
         refill-period: 1m
+  cache:
+    caches:
+      users:
+        ttl: 5m
+        max-size: 1000
+      adminQueries:
+        ttl: 30s
+        max-size: 50
   validation:
     quota:
       min: 1
