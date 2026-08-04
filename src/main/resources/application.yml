@@ -32,6 +32,17 @@ quotaguard:
   sessions:
     units-per-minute: ${SESSION_UNITS_PER_MINUTE:1}
     minimum-charge: ${SESSION_MINIMUM_CHARGE:1}
+  rate-limiting:
+    endpoints:
+      "[/api/v1/auth/login]":
+        tokens: 5
+        refill-period: 1m
+      "[/api/v1/auth/register]":
+        tokens: 20
+        refill-period: 1h
+      "[/api/v1/auth/refresh]":
+        tokens: 10
+        refill-period: 1m
   validation:
     quota:
       min: 1

@@ -1,6 +1,8 @@
 package com.snor.quotaguard.security;
 
+import com.snor.quotaguard.ratelimit.RateLimitingFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,6 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitingFilter rateLimitFilter;
     private final CustomUserDetailsService userDetailsService;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
@@ -49,9 +52,23 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/quota/reset").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * The rate-limit filter is a {@code @Component} (constructor-injected into
+     * this config), so Spring Boot would otherwise auto-register it with the
+     * servlet container in addition to the {@code SecurityFilterChain} position
+     * above. Disabling the registration bean keeps the filter single-registered.
+     */
+    @Bean
+    FilterRegistrationBean<RateLimitingFilter> rateLimitingFilterRegistration(RateLimitingFilter filter) {
+        FilterRegistrationBean<RateLimitingFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false); // only lives in the SecurityFilterChain
+        return reg;
     }
 
     @Bean

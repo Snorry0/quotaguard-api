@@ -44,6 +44,7 @@ public class BusinessMetrics {
     private Counter penaltyExpirations;
     private Counter completedSessions;
     private Counter failedSessionCompletions;
+    private Counter rateLimitRejections;
     private Map<String, Counter> adminOperations;
 
     @PostConstruct
@@ -74,6 +75,7 @@ public class BusinessMetrics {
         completedSessions = counter("quotaguard.sessions.completed", "Usage sessions completed");
         failedSessionCompletions = counter(
                 "quotaguard.sessions.completion.failed", "Failed usage session completions");
+        rateLimitRejections = counter("quotaguard.rate_limit.rejections", "Requests rejected by the rate limiter");
 
         adminOperations = new HashMap<>();
         adminOperations.put("user_create", taggedCounter(
@@ -146,6 +148,10 @@ public class BusinessMetrics {
 
     public void recordFailedSessionCompletion() {
         failedSessionCompletions.increment();
+    }
+
+    public void recordRateLimitRejection() {
+        rateLimitRejections.increment();
     }
 
     public void recordAdminOperation(String type) {
